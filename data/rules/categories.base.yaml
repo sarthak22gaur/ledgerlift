@@ -1,0 +1,221 @@
+# Category assignment rules
+# Applied after merchant rules, for transactions that didn't get a category.
+# Rules are evaluated in priority order (highest first). First match wins.
+#
+# when: conditions that must ALL match
+#   merchant_normalized: list of merchant names (any must match)
+#   description_regex: regex on description_raw + description_normalized
+#   transaction_type: list of transaction types (any must match)
+#   direction: "debit" or "credit"
+#   institution: institution name
+#   account_name: account name
+#
+# assign: what to set
+#   category: category name
+#   subcategory: (optional)
+#   confidence: (optional, default 0.9)
+
+rules:
+  # === High-priority: transaction-type and structure-based ===
+  - id: income_payroll
+    priority: 150
+    when:
+      description_regex: '(?i)(payroll|direct dep|salary)'
+      direction: credit
+    assign:
+      category: Income
+      subcategory: Payroll
+      confidence: 0.95
+
+  - id: income_deposit
+    priority: 145
+    when:
+      transaction_type: ["deposit"]
+      direction: credit
+    assign:
+      category: Income
+      confidence: 0.85
+
+  # === Transfers ===
+  - id: transfer_zelle
+    priority: 140
+    when:
+      description_regex: '(?i)zelle'
+    assign:
+      category: Transfers
+      subcategory: Zelle
+      confidence: 0.95
+
+  - id: transfer_venmo
+    priority: 140
+    when:
+      description_regex: '(?i)venmo'
+    assign:
+      category: Transfers
+      subcategory: Venmo
+      confidence: 0.95
+
+  - id: transfer_bank_internal
+    priority: 130
+    when:
+      description_regex: '(?i)(online transfer|real time payment)'
+    assign:
+      category: Transfers
+      subcategory: Bank Transfer
+      confidence: 0.85
+
+  - id: transfer_external
+    priority: 129
+    when:
+      description_regex: '(?i)(wire transfer|xoom|chips credit)'
+    assign:
+      category: Transfers
+      confidence: 0.85
+
+  # === Fees ===
+  - id: fee_service_charge
+    priority: 130
+    when:
+      description_regex: '(?i)(service charge|monthly fee|maintenance fee|insufficient funds|nsf|overdraft)'
+    assign:
+      category: Fees
+      confidence: 0.95
+
+  - id: fee_annual
+    priority: 130
+    when:
+      description_regex: '(?i)(annual.*fee|membership fee|member fee)'
+    assign:
+      category: Fees
+      subcategory: Annual Fee
+      confidence: 0.95
+
+  - id: fee_wire
+    priority: 130
+    when:
+      description_regex: '(?i)(wire fee|incoming wire fee)'
+    assign:
+      category: Fees
+      confidence: 0.95
+
+  - id: fee_official_check
+    priority: 130
+    when:
+      description_regex: '(?i)official checks? charge'
+    assign:
+      category: Fees
+      confidence: 0.95
+
+  - id: atm_withdrawal
+    priority: 130
+    when:
+      description_regex: '(?i)(atm\s*(withdrawal|fee)|\bwithdrawal\b)'
+      direction: debit
+    assign:
+      category: ATM / Cash Withdrawal
+      confidence: 0.95
+
+  - id: interest_payment
+    priority: 130
+    when:
+      transaction_type: ["interest"]
+    assign:
+      category: Interest
+      confidence: 0.95
+
+  # === Credit card payments ===
+  - id: cc_payment
+    priority: 125
+    when:
+      description_regex: '(?i)(autopay|automatic payment|payment.*thank you|credit crd|deserve inc)'
+    assign:
+      category: Credit Card Payment
+      confidence: 0.9
+
+  # === Refund ===
+  - id: refund
+    priority: 120
+    when:
+      description_regex: '(?i)(refund|return|credit|reversal|purchase return)'
+      direction: credit
+    assign:
+      category: Refund
+      confidence: 0.8
+
+  # === Education ===
+  - id: education
+    priority: 110
+    when:
+      description_regex: '(?i)(university|college|tuition|school)'
+    assign:
+      category: Education
+      confidence: 0.9
+
+  # === Rent ===
+  - id: rent
+    priority: 110
+    when:
+      description_regex: '(?i)(rent\b|property management|housing)'
+    assign:
+      category: Rent / Housing
+      confidence: 0.9
+
+  # === Medium-priority: description-based spending categories ===
+  - id: parking
+    priority: 100
+    when:
+      description_regex: '(?i)(parking|garage|meter|laz park)'
+      direction: debit
+    assign:
+      category: Transportation
+      subcategory: Parking
+      confidence: 0.85
+
+  - id: medical
+    priority: 100
+    when:
+      description_regex: '(?i)(hospital|medical|clinic|urgent care|pharmacy|doctor|dental|optom)'
+      direction: debit
+    assign:
+      category: Medical
+      confidence: 0.85
+
+  - id: car_wash
+    priority: 100
+    when:
+      description_regex: '(?i)car wash'
+      direction: debit
+    assign:
+      category: Transportation
+      subcategory: Car Wash
+      confidence: 0.85
+
+  - id: haircut
+    priority: 100
+    when:
+      description_regex: '(?i)(sport clips|great clips|barber|salon|hair)'
+      direction: debit
+    assign:
+      category: Personal Care
+      subcategory: Haircut
+      confidence: 0.85
+
+  # === SamPay prefix = dining (Samsung Pay at restaurants) ===
+  - id: sampay_dining
+    priority: 80
+    when:
+      description_regex: '(?i)^sampay\b'
+      direction: debit
+    assign:
+      category: Dining
+      confidence: 0.7
+
+  # === TST* prefix = dining (Toast POS) ===
+  - id: tst_dining
+    priority: 80
+    when:
+      description_regex: '(?i)\btst\*'
+      direction: debit
+    assign:
+      category: Dining
+      confidence: 0.7

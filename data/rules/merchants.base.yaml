@@ -1,0 +1,1537 @@
+rules:
+  # ============================================================
+  # PAYMENTS / TRANSFERS / INTERNAL (highest priority)
+  # ============================================================
+  - id: capital_one_autopay
+    priority: 135
+    match:
+      type: regex
+      pattern: 'capital one autopay|capital one-crcardpmt'
+    canonical_merchant: Capital One
+    category: Credit Card Payment
+
+  - id: chase_autopay
+    priority: 130
+    match:
+      type: regex
+      pattern: 'automatic payment.*thank you|chase credit crd'
+    canonical_merchant: Chase
+    category: Credit Card Payment
+
+  - id: amex_autopay
+    priority: 130
+    match:
+      type: regex
+      pattern: 'autopay payment.*thank you|mobile payment.*thank you|amex epayment|american express ach pmt'
+    canonical_merchant: Amex
+    category: Credit Card Payment
+
+  - id: deserve_payment
+    priority: 130
+    match:
+      type: contains
+      pattern: 'deserve inc'
+    canonical_merchant: Deserve
+    category: Credit Card Payment
+
+  - id: zelle
+    priority: 120
+    match:
+      type: contains
+      pattern: 'zelle'
+    canonical_merchant: Zelle
+
+  - id: venmo
+    priority: 120
+    match:
+      type: contains
+      pattern: 'venmo'
+    canonical_merchant: Venmo
+
+  - id: xoom
+    priority: 120
+    match:
+      type: contains
+      pattern: 'xoom'
+    canonical_merchant: Xoom
+
+  - id: real_time_payment
+    priority: 120
+    match:
+      type: regex
+      pattern: 'real time payment'
+    canonical_merchant: Bank Transfer
+
+  - id: wire_incoming
+    priority: 120
+    match:
+      type: regex
+      pattern: 'chips credit|incoming wire|wire transfer'
+    canonical_merchant: Wire Transfer
+
+  - id: online_transfer
+    priority: 115
+    match:
+      type: regex
+      pattern: 'online transfer'
+    canonical_merchant: Bank Transfer
+
+  - id: wealthfront
+    priority: 115
+    match:
+      type: contains
+      pattern: 'wealthfront'
+    canonical_merchant: Wealthfront
+    category: Transfers
+    subcategory: Bank Transfer
+
+  # ============================================================
+  # FEES
+  # ============================================================
+  - id: wire_fee
+    priority: 110
+    match:
+      type: regex
+      pattern: '(domestic|international) incoming wire fee'
+    canonical_merchant: Wire Fee
+    category: Fees
+
+  - id: official_checks_charge
+    priority: 110
+    match:
+      type: contains
+      pattern: 'official checks charge'
+    canonical_merchant: Bank Fee
+    category: Fees
+
+  - id: annual_membership_fee
+    priority: 110
+    match:
+      type: regex
+      pattern: 'annual membership fee|member fee'
+    canonical_merchant: Annual Fee
+    category: Fees
+    subcategory: Annual Fee
+
+  # ============================================================
+  # AMEX CREDITS / OFFERS
+  # ============================================================
+  - id: amex_dunkin_credit
+    priority: 110
+    match:
+      type: regex
+      pattern: "amex dunkin.*credit"
+    canonical_merchant: Amex Credit
+    category: Refund
+    subcategory: Amex Offer
+
+  - id: amex_dining_credit
+    priority: 110
+    match:
+      type: regex
+      pattern: 'amex dining credit'
+    canonical_merchant: Amex Credit
+    category: Refund
+    subcategory: Amex Offer
+
+  - id: amex_resy_credit
+    priority: 110
+    match:
+      type: regex
+      pattern: 'amex resy credit'
+    canonical_merchant: Amex Credit
+    category: Refund
+    subcategory: Amex Offer
+
+  - id: caponeoffers
+    priority: 110
+    match:
+      type: contains
+      pattern: 'caponeoffers'
+    canonical_merchant: Capital One Offer
+    category: Refund
+    subcategory: C1 Offer
+
+  - id: global_entry_benefit
+    priority: 110
+    match:
+      type: contains
+      pattern: 'global entry benefit'
+    canonical_merchant: Travel Credit
+    category: Refund
+    subcategory: Travel Credit
+
+  # ============================================================
+  # GROCERIES
+  # ============================================================
+  - id: costco
+    priority: 100
+    match:
+      type: regex
+      pattern: 'costco\s*(whse|wholesale)?'
+    canonical_merchant: Costco
+    category: Groceries
+
+  - id: trader_joes
+    priority: 100
+    match:
+      type: regex
+      pattern: "trader joe"
+    canonical_merchant: "Trader Joe's"
+    category: Groceries
+
+  - id: whole_foods
+    priority: 100
+    match:
+      type: regex
+      pattern: 'whole foods|wholefoods'
+    canonical_merchant: Whole Foods
+    category: Groceries
+
+  - id: wholefds
+    priority: 100
+    match:
+      type: contains
+      pattern: 'wholefds'
+    canonical_merchant: Whole Foods
+    category: Groceries
+
+  - id: safeway
+    priority: 100
+    match:
+      type: contains
+      pattern: 'safeway'
+    canonical_merchant: Safeway
+    category: Groceries
+
+  - id: vons
+    priority: 100
+    match:
+      type: regex
+      pattern: '\bvons\b'
+    canonical_merchant: Vons
+    category: Groceries
+
+  - id: 7eleven
+    priority: 100
+    match:
+      type: regex
+      pattern: '7-eleven|7eleven'
+    canonical_merchant: 7-Eleven
+    category: Groceries
+    subcategory: Convenience
+
+  - id: sprouts
+    priority: 100
+    match:
+      type: contains
+      pattern: 'sprouts'
+    canonical_merchant: Sprouts
+    category: Groceries
+
+  - id: total_wine
+    priority: 100
+    match:
+      type: contains
+      pattern: 'totalwine'
+    canonical_merchant: Total Wine
+    category: Groceries
+
+  - id: huel
+    priority: 100
+    match:
+      type: contains
+      pattern: 'huel'
+    canonical_merchant: Huel
+    category: Groceries
+    subcategory: Meal Replacement
+
+  # ============================================================
+  # DINING - Delivery
+  # ============================================================
+  - id: uber_eats
+    priority: 110
+    match:
+      type: regex
+      pattern: 'uber\s*eats'
+    canonical_merchant: Uber Eats
+    category: Dining
+    subcategory: Delivery
+
+  - id: doordash
+    priority: 100
+    match:
+      type: regex
+      pattern: 'doordash'
+    canonical_merchant: DoorDash
+    category: Dining
+    subcategory: Delivery
+
+  - id: grubhub
+    priority: 100
+    match:
+      type: contains
+      pattern: 'grubhub'
+    canonical_merchant: Grubhub
+    category: Dining
+    subcategory: Delivery
+
+  - id: ubr_postmates
+    priority: 100
+    match:
+      type: contains
+      pattern: 'postmates'
+    canonical_merchant: Uber Eats
+    category: Dining
+
+  - id: factor75
+    priority: 100
+    match:
+      type: contains
+      pattern: 'factor75'
+    canonical_merchant: Factor
+    category: Dining
+    subcategory: Meal Kit
+
+  # ============================================================
+  # DINING - National Chains
+  # ============================================================
+  - id: papa_johns
+    priority: 100
+    match:
+      type: regex
+      pattern: "papa john"
+    canonical_merchant: "Papa John's"
+    category: Dining
+    subcategory: Pizza
+
+  - id: dominos
+    priority: 100
+    match:
+      type: regex
+      pattern: "domino.s pizza"
+    canonical_merchant: "Domino's"
+    category: Dining
+    subcategory: Pizza
+
+  - id: mcdonald
+    priority: 100
+    match:
+      type: regex
+      pattern: "mcdonald"
+    canonical_merchant: "McDonald's"
+    category: Dining
+    subcategory: Fast Food
+
+  - id: chipotle
+    priority: 100
+    match:
+      type: contains
+      pattern: 'chipotle'
+    canonical_merchant: Chipotle
+    category: Dining
+
+  - id: subway
+    priority: 100
+    match:
+      type: regex
+      pattern: '\bsubway\b'
+    canonical_merchant: Subway
+    category: Dining
+    subcategory: Fast Food
+
+  - id: dunkin
+    priority: 100
+    match:
+      type: regex
+      pattern: "dunkin"
+    canonical_merchant: "Dunkin'"
+    category: Coffee
+
+  - id: taco_bell
+    priority: 100
+    match:
+      type: regex
+      pattern: 'taco bell'
+    canonical_merchant: Taco Bell
+    category: Dining
+    subcategory: Fast Food
+
+  - id: shake_shack
+    priority: 100
+    match:
+      type: contains
+      pattern: 'shake shack'
+    canonical_merchant: Shake Shack
+    category: Dining
+
+  - id: ihop
+    priority: 100
+    match:
+      type: regex
+      pattern: 'ihop'
+    canonical_merchant: IHOP
+    category: Dining
+
+  - id: cava
+    priority: 100
+    match:
+      type: regex
+      pattern: '\bcava\b'
+    canonical_merchant: Cava
+    category: Dining
+
+  - id: cicis_pizza
+    priority: 100
+    match:
+      type: contains
+      pattern: 'cicis pizza'
+    canonical_merchant: Cici's Pizza
+    category: Dining
+
+  - id: din_tai_fung
+    priority: 100
+    match:
+      type: contains
+      pattern: 'din tai fung'
+    canonical_merchant: Din Tai Fung
+    category: Dining
+
+  - id: bjs_restaurants
+    priority: 100
+    match:
+      type: regex
+      pattern: "bjs restaurants"
+    canonical_merchant: "BJ's Restaurant"
+    category: Dining
+
+  - id: einstein_bros
+    priority: 100
+    match:
+      type: contains
+      pattern: 'einstein bros'
+    canonical_merchant: Einstein Bros Bagels
+    category: Dining
+
+  - id: coca_cola_vending
+    priority: 100
+    match:
+      type: contains
+      pattern: 'coca cola'
+    canonical_merchant: Coca Cola
+    category: Dining
+
+  - id: peets_coffee
+    priority: 100
+    match:
+      type: contains
+      pattern: 'peets coffee'
+    canonical_merchant: Peet's Coffee
+    category: Dining
+    subcategory: Coffee
+
+  # ============================================================
+  # COFFEE
+  # ============================================================
+  - id: starbucks
+    priority: 100
+    match:
+      type: contains
+      pattern: 'starbucks'
+    canonical_merchant: Starbucks
+    category: Coffee
+
+  - id: blue_bottle
+    priority: 100
+    match:
+      type: regex
+      pattern: 'blue bottle'
+    canonical_merchant: Blue Bottle Coffee
+    category: Coffee
+
+  - id: philz
+    priority: 100
+    match:
+      type: contains
+      pattern: 'philz'
+    canonical_merchant: Philz Coffee
+    category: Coffee
+
+  - id: coffee_bean
+    priority: 100
+    match:
+      type: regex
+      pattern: 'coffee bean'
+    canonical_merchant: Coffee Bean & Tea Leaf
+    category: Coffee
+
+  # ============================================================
+  # SHOPPING - General
+  # ============================================================
+  - id: amazon
+    priority: 100
+    match:
+      type: regex
+      pattern: 'amzn|amazon'
+    canonical_merchant: Amazon
+    category: Shopping
+    subcategory: Online Shopping
+
+  - id: walmart
+    priority: 100
+    match:
+      type: regex
+      pattern: 'wal-?mart|walmart'
+    canonical_merchant: Walmart
+    category: Shopping
+
+  - id: target
+    priority: 100
+    match:
+      type: regex
+      pattern: '\btarget\b'
+    canonical_merchant: Target
+    category: Shopping
+
+  - id: dollar_tree
+    priority: 100
+    match:
+      type: contains
+      pattern: 'dollar tree'
+    canonical_merchant: Dollar Tree
+    category: Shopping
+
+  - id: sephora
+    priority: 100
+    match:
+      type: contains
+      pattern: 'sephora'
+    canonical_merchant: Sephora
+    category: Shopping
+    subcategory: Beauty
+
+  - id: ulta
+    priority: 100
+    match:
+      type: regex
+      pattern: '\bulta\b'
+    canonical_merchant: Ulta Beauty
+    category: Shopping
+    subcategory: Beauty
+
+  - id: macys
+    priority: 100
+    match:
+      type: regex
+      pattern: "macy.?s"
+    canonical_merchant: "Macy's"
+    category: Shopping
+
+  - id: old_navy
+    priority: 100
+    match:
+      type: regex
+      pattern: 'old navy'
+    canonical_merchant: Old Navy
+    category: Shopping
+    subcategory: Clothing
+
+  - id: old_navy_url
+    priority: 100
+    match:
+      type: contains
+      pattern: 'oldnavy'
+    canonical_merchant: Old Navy
+    category: Shopping
+
+  - id: nike
+    priority: 100
+    match:
+      type: regex
+      pattern: '\bnike\b'
+    canonical_merchant: Nike
+    category: Shopping
+    subcategory: Clothing
+
+  - id: adidas
+    priority: 100
+    match:
+      type: contains
+      pattern: 'adidas'
+    canonical_merchant: Adidas
+    category: Shopping
+    subcategory: Clothing
+
+  - id: temu
+    priority: 100
+    match:
+      type: contains
+      pattern: 'temu'
+    canonical_merchant: Temu
+    category: Shopping
+    subcategory: Online Shopping
+
+  - id: cvs
+    priority: 100
+    match:
+      type: regex
+      pattern: '\bcvs\b'
+    canonical_merchant: CVS
+    category: Shopping
+    subcategory: Pharmacy
+
+  - id: tj_maxx
+    priority: 100
+    match:
+      type: regex
+      pattern: 't\.?j\.?\s*maxx|tjmaxx'
+    canonical_merchant: TJ Maxx
+    category: Shopping
+
+  - id: marshalls
+    priority: 100
+    match:
+      type: contains
+      pattern: 'marshalls'
+    canonical_merchant: Marshalls
+    category: Shopping
+
+  - id: ross_stores
+    priority: 100
+    match:
+      type: contains
+      pattern: 'ross stores'
+    canonical_merchant: Ross
+    category: Shopping
+
+  - id: nordstrom_rack
+    priority: 100
+    match:
+      type: contains
+      pattern: 'nordstrom rack'
+    canonical_merchant: Nordstrom Rack
+    category: Shopping
+
+  - id: uniqlo
+    priority: 100
+    match:
+      type: contains
+      pattern: 'uniqlo'
+    canonical_merchant: Uniqlo
+    category: Shopping
+
+  - id: pacsun
+    priority: 100
+    match:
+      type: contains
+      pattern: 'pacsun'
+    canonical_merchant: PacSun
+    category: Shopping
+    subcategory: Clothing
+
+  - id: soma_intimates
+    priority: 100
+    match:
+      type: contains
+      pattern: 'soma intimates'
+    canonical_merchant: Soma Intimates
+    category: Shopping
+
+  - id: francescas
+    priority: 100
+    match:
+      type: contains
+      pattern: 'francesca'
+    canonical_merchant: Francesca's
+    category: Shopping
+
+  - id: ikea
+    priority: 100
+    match:
+      type: contains
+      pattern: 'ikea'
+    canonical_merchant: IKEA
+    category: Shopping
+
+  - id: home_depot
+    priority: 100
+    match:
+      type: contains
+      pattern: 'home depot'
+    canonical_merchant: Home Depot
+    category: Shopping
+
+  - id: etsy
+    priority: 100
+    match:
+      type: contains
+      pattern: 'etsy'
+    canonical_merchant: Etsy
+    category: Shopping
+
+  - id: staples
+    priority: 100
+    match:
+      type: contains
+      pattern: 'staples'
+    canonical_merchant: Staples
+    category: Shopping
+
+  - id: h_and_m
+    priority: 100
+    match:
+      type: regex
+      pattern: 'h&m'
+    canonical_merchant: H&M
+    category: Shopping
+    subcategory: Clothing
+
+  - id: samsung
+    priority: 100
+    match:
+      type: contains
+      pattern: 'samsung'
+    canonical_merchant: Samsung
+    category: Shopping
+    subcategory: Technology
+
+  - id: usps
+    priority: 100
+    match:
+      type: contains
+      pattern: 'usps'
+    canonical_merchant: USPS
+    category: Shopping
+    subcategory: Shipping
+
+  - id: fedex
+    priority: 100
+    match:
+      type: contains
+      pattern: 'fedex'
+    canonical_merchant: FedEx
+    category: Shopping
+
+  - id: ray_ban
+    priority: 100
+    match:
+      type: regex
+      pattern: 'ray-?ban'
+    canonical_merchant: Ray-Ban
+    category: Shopping
+    subcategory: Accessories
+
+  - id: tp_link
+    priority: 100
+    match:
+      type: contains
+      pattern: 'tp-link'
+    canonical_merchant: TP-Link
+    category: Shopping
+    subcategory: Technology
+
+  - id: apple
+    priority: 90
+    match:
+      type: regex
+      pattern: '\bapple\b'
+    canonical_merchant: Apple
+    category: Shopping
+    subcategory: Technology
+
+  - id: google
+    priority: 90
+    match:
+      type: regex
+      pattern: '\bgoogle\b'
+    canonical_merchant: Google
+    category: Shopping
+    subcategory: Technology
+
+  - id: store_855
+    priority: 90
+    match:
+      type: regex
+      pattern: '^store\s+\d'
+    canonical_merchant: Store
+    category: Shopping
+
+  - id: cash_back_auto
+    priority: 120
+    match:
+      type: contains
+      pattern: 'cash back auto'
+    canonical_merchant: Deserve Cash Back
+    category: Refund
+
+  - id: jewelclub
+    priority: 100
+    match:
+      type: contains
+      pattern: 'jewelclub'
+    canonical_merchant: Diamond & Jewelry
+    category: Shopping
+    subcategory: Jewelry
+
+  # ============================================================
+  # TRANSPORTATION - Rideshare
+  # ============================================================
+  - id: uber_ride
+    priority: 100
+    match:
+      type: regex
+      pattern: '\buber\b(?!\s*eats)'
+    canonical_merchant: Uber
+    category: Transportation
+    subcategory: Rideshare
+
+  - id: lyft
+    priority: 100
+    match:
+      type: regex
+      pattern: '\blyft\b'
+    canonical_merchant: Lyft
+    category: Transportation
+    subcategory: Rideshare
+
+  # ============================================================
+  # TRANSPORTATION - Gas / Car
+  # ============================================================
+  - id: shell
+    priority: 100
+    match:
+      type: regex
+      pattern: '\bshell\b'
+    canonical_merchant: Shell
+    category: Transportation
+    subcategory: Gas
+
+  - id: chevron
+    priority: 100
+    match:
+      type: regex
+      pattern: '\bchevron\b'
+    canonical_merchant: Chevron
+    category: Transportation
+    subcategory: Gas
+
+  - id: sunoco
+    priority: 100
+    match:
+      type: contains
+      pattern: 'sunoco'
+    canonical_merchant: Sunoco
+    category: Transportation
+    subcategory: Gas
+
+  - id: qt_gas
+    priority: 100
+    match:
+      type: regex
+      pattern: '\bqt\s+\d'
+    canonical_merchant: QuikTrip
+    category: Transportation
+    subcategory: Gas
+
+  - id: zipcar
+    priority: 100
+    match:
+      type: contains
+      pattern: 'zipcar'
+    canonical_merchant: Zipcar
+    category: Transportation
+    subcategory: Car Rental
+
+  - id: hmf_auto
+    priority: 100
+    match:
+      type: regex
+      pattern: 'hmf|hmfusa'
+    canonical_merchant: Hyundai Motor Finance
+    category: Transportation
+    subcategory: Auto Loan
+
+  # ============================================================
+  # TRAVEL
+  # ============================================================
+  - id: southwest
+    priority: 100
+    match:
+      type: regex
+      pattern: 'southwest|swa\b'
+    canonical_merchant: Southwest Airlines
+    category: Travel
+    subcategory: Flights
+
+  - id: southwest_airlines
+    priority: 100
+    match:
+      type: regex
+      pattern: 'southwes\b'
+    canonical_merchant: Southwest Airlines
+    category: Travel
+    subcategory: Flights
+
+  - id: delta
+    priority: 100
+    match:
+      type: regex
+      pattern: '\bdelta\s*air'
+    canonical_merchant: Delta Air Lines
+    category: Travel
+    subcategory: Flights
+
+  - id: lufthansa
+    priority: 100
+    match:
+      type: contains
+      pattern: 'lufthan'
+    canonical_merchant: Lufthansa
+    category: Travel
+    subcategory: Flights
+
+  - id: frontier_airlines
+    priority: 100
+    match:
+      type: contains
+      pattern: 'frontier ai'
+    canonical_merchant: Frontier Airlines
+    category: Travel
+    subcategory: Flights
+
+  - id: emirates
+    priority: 100
+    match:
+      type: contains
+      pattern: 'emirates'
+    canonical_merchant: Emirates
+    category: Travel
+    subcategory: Flights
+
+  - id: greyhound
+    priority: 100
+    match:
+      type: contains
+      pattern: 'greyhound'
+    canonical_merchant: Greyhound
+    category: Travel
+    subcategory: Bus
+
+  - id: hertz
+    priority: 100
+    match:
+      type: contains
+      pattern: 'hertz'
+    canonical_merchant: Hertz
+    category: Travel
+    subcategory: Car Rental
+
+  - id: hertz_toll
+    priority: 100
+    match:
+      type: contains
+      pattern: 'hertztoll'
+    canonical_merchant: Hertz Tolls
+    category: Travel
+    subcategory: Car Rental
+
+  - id: airbnb
+    priority: 100
+    match:
+      type: contains
+      pattern: 'airbnb'
+    canonical_merchant: Airbnb
+    category: Travel
+    subcategory: Lodging
+
+  - id: holiday_inn
+    priority: 100
+    match:
+      type: regex
+      pattern: 'holiday inn'
+    canonical_merchant: Holiday Inn
+    category: Travel
+    subcategory: Lodging
+
+  - id: vhlv_lodging
+    priority: 100
+    match:
+      type: regex
+      pattern: 'vhlv.*lodging'
+    canonical_merchant: Hotel
+    category: Travel
+    subcategory: Lodging
+
+  - id: cot_flights
+    priority: 100
+    match:
+      type: regex
+      pattern: 'cot.?flt'
+    canonical_merchant: Capital One Travel
+    category: Travel
+    subcategory: Flights
+
+  - id: cot_hotels
+    priority: 100
+    match:
+      type: regex
+      pattern: 'cot.?htl'
+    canonical_merchant: Capital One Travel
+    category: Travel
+    subcategory: Hotels
+
+  - id: cot_car
+    priority: 100
+    match:
+      type: regex
+      pattern: 'cot.?car'
+    canonical_merchant: Capital One Travel
+    category: Travel
+    subcategory: Car Rental
+
+  - id: chase_travel
+    priority: 100
+    match:
+      type: regex
+      pattern: 'chase travel|cl chase travel'
+    canonical_merchant: Chase Travel
+    category: Travel
+
+  - id: us_customs_trusted
+    priority: 100
+    match:
+      type: regex
+      pattern: 'uscustoms.*trusted'
+    canonical_merchant: US Customs (TSA/Global Entry)
+    category: Travel
+    subcategory: Travel Document
+
+  # ============================================================
+  # ENTERTAINMENT
+  # ============================================================
+  - id: fandango
+    priority: 100
+    match:
+      type: contains
+      pattern: 'fandango'
+    canonical_merchant: Fandango
+    category: Entertainment
+
+  - id: cinemark
+    priority: 100
+    match:
+      type: contains
+      pattern: 'cinemark'
+    canonical_merchant: Cinemark
+    category: Entertainment
+    subcategory: Movies
+
+  - id: amc_theatres
+    priority: 100
+    match:
+      type: regex
+      pattern: '\bamc\s+\d'
+    canonical_merchant: AMC Theatres
+    category: Entertainment
+
+  - id: seaworld
+    priority: 100
+    match:
+      type: contains
+      pattern: 'seaworld'
+    canonical_merchant: SeaWorld
+    category: Entertainment
+    subcategory: Attractions
+
+  - id: madame_tussauds
+    priority: 100
+    match:
+      type: contains
+      pattern: 'madame tussauds'
+    canonical_merchant: Madame Tussauds
+    category: Entertainment
+    subcategory: Attractions
+
+  # ============================================================
+  # PERSONAL CARE
+  # ============================================================
+  - id: sport_clips
+    priority: 100
+    match:
+      type: contains
+      pattern: 'sport clips'
+    canonical_merchant: Sport Clips
+    category: Personal Care
+    subcategory: Haircut
+
+  - id: great_clips
+    priority: 100
+    match:
+      type: contains
+      pattern: 'great clips'
+    canonical_merchant: Great Clips
+    category: Personal Care
+    subcategory: Haircut
+
+  - id: supercuts
+    priority: 100
+    match:
+      type: contains
+      pattern: 'supercuts'
+    canonical_merchant: Supercuts
+    category: Personal Care
+    subcategory: Haircut
+
+  # ============================================================
+  # SUBSCRIPTIONS
+  # ============================================================
+  - id: spotify
+    priority: 100
+    match:
+      type: contains
+      pattern: 'spotify'
+    canonical_merchant: Spotify
+    category: Subscriptions
+
+  - id: netflix
+    priority: 100
+    match:
+      type: contains
+      pattern: 'netflix'
+    canonical_merchant: Netflix
+    category: Subscriptions
+
+  - id: hulu
+    priority: 100
+    match:
+      type: contains
+      pattern: 'hulu'
+    canonical_merchant: Hulu
+    category: Subscriptions
+
+  - id: disney_plus
+    priority: 100
+    match:
+      type: regex
+      pattern: 'disney\s*\+'
+    canonical_merchant: Disney+
+    category: Subscriptions
+
+  - id: disney_plus_url
+    priority: 100
+    match:
+      type: contains
+      pattern: 'disney plus'
+    canonical_merchant: Disney+
+    category: Subscriptions
+
+  - id: paramount_plus
+    priority: 100
+    match:
+      type: regex
+      pattern: 'paramount'
+    canonical_merchant: Paramount+
+    category: Subscriptions
+
+  - id: max_streaming
+    priority: 100
+    match:
+      type: regex
+      pattern: '\bmax\b.*new york'
+    canonical_merchant: Max
+    category: Subscriptions
+
+  - id: espn_plus
+    priority: 100
+    match:
+      type: regex
+      pattern: 'espn'
+    canonical_merchant: ESPN+
+    category: Subscriptions
+
+  - id: crunchyroll
+    priority: 100
+    match:
+      type: contains
+      pattern: 'crunchyroll'
+    canonical_merchant: Crunchyroll
+    category: Subscriptions
+
+  - id: prime_video
+    priority: 100
+    match:
+      type: regex
+      pattern: 'prime video'
+    canonical_merchant: Amazon Prime Video
+    category: Subscriptions
+
+  - id: playstation
+    priority: 100
+    match:
+      type: contains
+      pattern: 'playstation'
+    canonical_merchant: PlayStation
+    category: Subscriptions
+
+  - id: audible
+    priority: 100
+    match:
+      type: regex
+      pattern: 'audible'
+    canonical_merchant: Audible
+    category: Subscriptions
+
+  - id: linkedin
+    priority: 100
+    match:
+      type: regex
+      pattern: 'linkedin'
+    canonical_merchant: LinkedIn
+    category: Subscriptions
+
+  - id: github
+    priority: 100
+    match:
+      type: contains
+      pattern: 'github'
+    canonical_merchant: GitHub
+    category: Subscriptions
+    subcategory: Software
+
+  - id: openai
+    priority: 100
+    match:
+      type: contains
+      pattern: 'openai'
+    canonical_merchant: OpenAI
+    category: Subscriptions
+    subcategory: Software
+
+  - id: canva
+    priority: 100
+    match:
+      type: contains
+      pattern: 'canva'
+    canonical_merchant: Canva
+    category: Subscriptions
+    subcategory: Software
+
+  - id: 1password
+    priority: 100
+    match:
+      type: contains
+      pattern: '1password'
+    canonical_merchant: 1Password
+    category: Subscriptions
+    subcategory: Software
+
+  - id: surfshark
+    priority: 100
+    match:
+      type: contains
+      pattern: 'surfshark'
+    canonical_merchant: Surfshark
+    category: Subscriptions
+    subcategory: Software
+
+  - id: adobe
+    priority: 100
+    match:
+      type: contains
+      pattern: 'adobe'
+    canonical_merchant: Adobe
+    category: Subscriptions
+    subcategory: Software
+
+  - id: vercel
+    priority: 100
+    match:
+      type: contains
+      pattern: 'vercel'
+    canonical_merchant: Vercel
+    category: Subscriptions
+    subcategory: Software
+
+  - id: cloudflare
+    priority: 100
+    match:
+      type: contains
+      pattern: 'cloudflare'
+    canonical_merchant: Cloudflare
+    category: Subscriptions
+
+  - id: godaddy
+    priority: 100
+    match:
+      type: regex
+      pattern: 'godaddy'
+    canonical_merchant: GoDaddy
+    category: Subscriptions
+
+  - id: plex
+    priority: 100
+    match:
+      type: contains
+      pattern: 'plexinc'
+    canonical_merchant: Plex
+    category: Subscriptions
+
+  - id: obsidian
+    priority: 100
+    match:
+      type: contains
+      pattern: 'obsidian'
+    canonical_merchant: Obsidian
+    category: Subscriptions
+
+  - id: vpn_service
+    priority: 100
+    match:
+      type: regex
+      pattern: '\bvpn\b'
+    canonical_merchant: VPN Service
+    category: Subscriptions
+
+  - id: walmart_plus
+    priority: 100
+    match:
+      type: contains
+      pattern: 'wmt plus'
+    canonical_merchant: Walmart+
+    category: Subscriptions
+
+  - id: saas_service
+    priority: 100
+    match:
+      type: contains
+      pattern: 'saas service'
+    canonical_merchant: SaaS Service
+    category: Subscriptions
+    subcategory: Software
+
+  - id: paddle_net
+    priority: 100
+    match:
+      type: contains
+      pattern: 'paddle.net'
+    canonical_merchant: Paddle
+    category: Subscriptions
+    subcategory: Software
+
+  # ============================================================
+  # UTILITIES / INSURANCE
+  # ============================================================
+  - id: spectrum
+    priority: 100
+    match:
+      type: contains
+      pattern: 'spectrum'
+    canonical_merchant: Spectrum
+    category: Utilities
+    subcategory: Internet
+
+  - id: comcast
+    priority: 100
+    match:
+      type: contains
+      pattern: 'comcast'
+    canonical_merchant: Comcast/Xfinity
+    category: Utilities
+    subcategory: Internet
+
+  - id: att_payment
+    priority: 100
+    match:
+      type: regex
+      pattern: 'att.*payment|at&t'
+    canonical_merchant: AT&T
+    category: Utilities
+    subcategory: Phone
+
+  - id: conservice
+    priority: 100
+    match:
+      type: contains
+      pattern: 'conservice'
+    canonical_merchant: Conservice
+    category: Utilities
+
+  - id: geico
+    priority: 100
+    match:
+      type: contains
+      pattern: 'geico'
+    canonical_merchant: GEICO
+    category: Insurance
+    subcategory: Auto Insurance
+
+  - id: state_farm
+    priority: 100
+    match:
+      type: regex
+      pattern: 'state farm'
+    canonical_merchant: State Farm
+    category: Insurance
+
+  - id: lemonade_insurance
+    priority: 100
+    match:
+      type: contains
+      pattern: 'lemonade'
+    canonical_merchant: Lemonade
+    category: Insurance
+    subcategory: Renters Insurance
+
+  - id: unitedhealthcare
+    priority: 100
+    match:
+      type: contains
+      pattern: 'unitedhealthcare'
+    canonical_merchant: UnitedHealthcare
+    category: Insurance
+    subcategory: Health
+
+  # ============================================================
+  # MEDICAL
+  # ============================================================
+  - id: minuteclinic
+    priority: 100
+    match:
+      type: contains
+      pattern: 'minuteclinic'
+    canonical_merchant: MinuteClinic
+    category: Medical
+
+  - id: uscis
+    priority: 100
+    match:
+      type: contains
+      pattern: 'uscis'
+    canonical_merchant: USCIS
+    category: Fees
+    subcategory: Government
+
+  # ============================================================
+  # WEALTHFRONT INTERNAL / SWEEP
+  # ============================================================
+  - id: wf_end_of_day_settlement
+    priority: 120
+    match:
+      type: regex
+      pattern: 'end of day'
+    canonical_merchant: Wealthfront Sweep
+    category: Transfers
+    subcategory: Internal Sweep
+
+  - id: wf_transfer_greendot
+    priority: 120
+    match:
+      type: regex
+      pattern: 'end of day transfer (to|from) green dot'
+    canonical_merchant: Wealthfront Sweep
+    category: Transfers
+    subcategory: Internal Sweep
+
+  - id: wf_rtp_fednow
+    priority: 115
+    match:
+      type: regex
+      pattern: 'rtp/fednow'
+    canonical_merchant: Wealthfront Transfer
+    category: Transfers
+    subcategory: Bank Transfer
+
+  - id: wf_interest
+    priority: 110
+    match:
+      type: regex
+      pattern: 'interest -'
+    canonical_merchant: Wealthfront
+    category: Interest
+
+  - id: sofi_interest
+    priority: 110
+    match:
+      type: contains
+      pattern: 'interest earned'
+    canonical_merchant: SoFi
+    category: Interest
+
+  - id: sofi_promo_bonus
+    priority: 115
+    match:
+      type: contains
+      pattern: 'promo bonus'
+    canonical_merchant: SoFi
+    category: Income
+    subcategory: Bonus
+
+  # ============================================================
+  # BANKING / FINANCIAL
+  # ============================================================
+  - id: wf_ach_transfer
+    priority: 115
+    match:
+      type: exact
+      pattern: 'ach'
+    canonical_merchant: Wealthfront
+    category: Transfers
+    subcategory: Bank Transfer
+
+  - id: chase_withdrawal
+    priority: 115
+    match:
+      type: contains
+      pattern: 'withdrawal'
+    canonical_merchant: Chase
+
+  - id: check_payment
+    priority: 110
+    match:
+      type: regex
+      pattern: 'check\s*#?\s*\d+'
+    canonical_merchant: Check
+
+  - id: counter_check
+    priority: 110
+    match:
+      type: contains
+      pattern: 'counter check'
+    canonical_merchant: Chase
+    category: Fees
+
+  - id: chase_new_account_bonus
+    priority: 115
+    match:
+      type: regex
+      pattern: '\$?\d+ for new'
+    canonical_merchant: Chase
+    category: Income
+    subcategory: Bonus
+
+  - id: coinbase
+    priority: 100
+    match:
+      type: contains
+      pattern: 'coinbase'
+    canonical_merchant: Coinbase
+    category: Transfers
+    subcategory: Crypto
+
+  - id: gusto_payroll
+    priority: 110
+    match:
+      type: contains
+      pattern: 'gusto'
+    canonical_merchant: Gusto
+    category: Income
+    subcategory: Payroll
+
+  - id: irs_refund
+    priority: 120
+    match:
+      type: regex
+      pattern: 'irs.*tax ref'
+    canonical_merchant: IRS
+    category: Income
+    subcategory: Tax Refund

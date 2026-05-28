@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Financial data — NEVER commit statements or derived data
+data/statements/
+data/raw/
+data/exports/
+data/state/
+data/logs/
+data/rules/accounts.yaml
+data/rules/merchants.yaml
+data/rules/categories.yaml
+
+# SQLite WAL files (generated at runtime alongside ledgerlift.sqlite)
+*.sqlite-shm
+*.sqlite-wal
+
+# Environment
+.env
+.direnv/
+.envrc
+
+# Dashboard / Node.js
+node_modules/
+.next/
+.env.local
+.env*.local
+
+# Audit / private notes (lives in vault repo)
+AUDIT.md
+
+# Generated agent surfaces (source of truth is agents/)
+/.agents/
+/.claude/
+/.codex/
+/.opencode/
+/AGENTS.md
