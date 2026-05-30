@@ -45,6 +45,8 @@ export default function DrilldownChart(props: DrilldownChartProps) {
   const searchParams = useSearchParams();
   const c = useChartColors();
 
+  const isEmpty = props.data.length === 0;
+
   function buildHref(overrides: Record<string, string>) {
     const params = new URLSearchParams(searchParams.toString());
     for (const [k, v] of Object.entries(overrides)) params.set(k, v);
@@ -146,6 +148,21 @@ export default function DrilldownChart(props: DrilldownChartProps) {
       const month = String(param.dataIndex + 1).padStart(2, "0");
       router.push(buildHref({ month }));
     }
+  }
+
+  if (isEmpty) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No transactions for this period.
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (

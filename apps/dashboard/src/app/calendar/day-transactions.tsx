@@ -1,6 +1,7 @@
 "use client";
 
 import TransactionTable from "@/components/transactions/transaction-table";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import type { Transaction } from "@/server/data/types";
 import { formatDate } from "@/lib/date";
 
@@ -12,16 +13,18 @@ type Props = {
 
 export default function DayTransactions({ day, transactions, total }: Props) {
   return (
-    <div className="space-y-3">
-      <h3 className="text-sm font-semibold">
-        Transactions — {formatDate(day)}
-      </h3>
-      <TransactionTable
-        transactions={transactions}
-        total={total}
-        page={1}
-        pageSize={100}
-      />
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Transactions — {formatDate(day)}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <TransactionTable
+          transactions={transactions}
+          total={total}
+          page={1}
+          pageSize={100}
+        />
+      </CardContent>
+    </Card>
   );
 }

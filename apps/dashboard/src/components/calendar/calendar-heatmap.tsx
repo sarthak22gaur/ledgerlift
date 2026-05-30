@@ -80,7 +80,7 @@ export default function CalendarHeatmap({ data, year, month, metric }: Props) {
 
   const visualMapInRange = isNet
     ? undefined
-    : { color: ["#fef3c7", "#ef4444"] };
+    : { color: ["#fca5a5", "#dc2626"] };
 
   const monthStart = `${year}-${month}-01`;
   const monthEnd = `${year}-${month}-${zeroPad(numDays)}`;
