@@ -612,7 +612,7 @@ export function dayOfWeekSeriesQuery(
       strftime('%w', transaction_date) AS dow,
       ${valueExpr} AS value,
       COUNT(*) AS txn_count,
-      CAST(${valueExpr} AS REAL) / NULLIF(COUNT(DISTINCT transaction_date), 0) AS avg_value
+      CAST(${valueExpr} AS REAL) / NULLIF(COUNT(DISTINCT transaction_date), 0) AS avg_value  /* re-expands valueExpr: SQLite forbids referencing a SELECT-list alias in a sibling SELECT expression */
     FROM transactions
     ${realCondition}
     GROUP BY strftime('%w', transaction_date)

@@ -21,8 +21,8 @@ export default function DrilldownBreadcrumb({ year, month }: BreadcrumbProps) {
     return qs ? `${pathname}?${qs}` : pathname;
   }
 
-  const allYearsHref = buildHref(["year", "month"]);
-  const yearHref = year ? buildHref(["month"]) : undefined;
+  const allYearsHref = buildHref(["year", "month", "day"]);
+  const yearHref = year ? buildHref(["month", "day"]) : undefined;
 
   const monthLabel = year && month
     ? formatMonth(`${year}-${month}`)

@@ -140,7 +140,6 @@ export default async function CalendarPage({
           <EmptyState />
         ) : (
           <div className="space-y-6">
-            {/* Drill-down area */}
             {year == null ? (
               <DrilldownChart
                 mode="year"
@@ -176,7 +175,6 @@ export default async function CalendarPage({
               </div>
             )}
 
-            {/* Temporal panels */}
             <DayOfWeekPanel data={datasets.dowSeries} metric={metric} />
             <SeasonPanel
               seasonData={datasets.seasonSeries}

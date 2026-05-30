@@ -32,7 +32,7 @@ type Props = {
 };
 
 type EChartsHeatmapParam = {
-  data: [string, number, number]; // [date, value, txn_count]
+  data: [string, number, number];
   value: [string, number, number];
 };
 
@@ -94,9 +94,8 @@ export default function CalendarHeatmap({ data, year, month, metric }: Props) {
       textStyle: { color: c.tooltipText, fontSize: 12 },
       formatter(p: EChartsHeatmapParam) {
         const [date, value, txn_count] = p.data ?? p.value;
-        const sign = isNet && value < 0 ? "" : "";
         return `<div style="font-weight:600;margin-bottom:4px">${formatDate(date)}</div>
-          <div style="font-variant-numeric:tabular-nums">${sign}${formatCurrency(value)}</div>
+          <div style="font-variant-numeric:tabular-nums">${formatCurrency(value)}</div>
           <div style="color:${c.tooltipMuted};margin-top:2px">${txn_count} transaction${txn_count !== 1 ? "s" : ""}</div>`;
       },
     },

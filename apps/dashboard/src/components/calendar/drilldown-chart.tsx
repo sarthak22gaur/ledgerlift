@@ -47,8 +47,9 @@ export default function DrilldownChart(props: DrilldownChartProps) {
 
   const isEmpty = props.data.length === 0;
 
-  function buildHref(overrides: Record<string, string>) {
+  function buildHref(overrides: Record<string, string>, drop: string[] = []) {
     const params = new URLSearchParams(searchParams.toString());
+    for (const key of drop) params.delete(key);
     for (const [k, v] of Object.entries(overrides)) params.set(k, v);
     return `${pathname}?${params.toString()}`;
   }
@@ -143,10 +144,10 @@ export default function DrilldownChart(props: DrilldownChartProps) {
   function handleClick(param: EChartsParam) {
     if (props.mode === "year") {
       const year = props.data[param.dataIndex]?.year;
-      if (year) router.push(buildHref({ year }));
+      if (year) router.push(buildHref({ year }, ["month", "day"]));
     } else {
       const month = String(param.dataIndex + 1).padStart(2, "0");
-      router.push(buildHref({ month }));
+      router.push(buildHref({ month }, ["day"]));
     }
   }
 

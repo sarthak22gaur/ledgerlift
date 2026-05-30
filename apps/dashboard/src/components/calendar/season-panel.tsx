@@ -15,7 +15,6 @@ import type { SeasonPoint, MonthOfYearPoint } from "@/server/data/types";
 
 echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
-// Meteorological N-hemisphere: Dec-Jan-Feb=Winter, Mar-Apr-May=Spring, Jun-Jul-Aug=Summer, Sep-Oct-Nov=Autumn
 const SEASON_ORDER = ["Winter", "Spring", "Summer", "Autumn"] as const;
 type Season = (typeof SEASON_ORDER)[number];
 
