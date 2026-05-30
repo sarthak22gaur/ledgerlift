@@ -12,6 +12,7 @@ import {
   CircleAlert,
   ArrowRightLeft,
   SlidersHorizontal,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -25,6 +26,7 @@ type NavItem = {
 const mainNav: NavItem[] = [
   { label: "Overview", href: "/", icon: LayoutDashboard },
   { label: "Transactions", href: "/transactions", icon: ArrowLeftRight },
+  { label: "Calendar", href: "/calendar", icon: CalendarDays },
   { label: "Categories", href: "/categories", icon: Tags },
   { label: "Merchants", href: "/merchants", icon: Store },
   { label: "Accounts", href: "/accounts", icon: Building2 },
