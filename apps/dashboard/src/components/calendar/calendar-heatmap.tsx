@@ -64,23 +64,22 @@ export default function CalendarHeatmap({ data, year, month, metric }: Props) {
     return [date, row?.value ?? 0, row?.txn_count ?? 0];
   });
 
-  const values = chartData.map((d) => d[1]);
-  const maxVal = Math.max(...values, 0.01);
-  const minVal = Math.min(...values, 0);
+  // Drop no-transaction days so they render as empty cells instead of pinning the low end of the scale.
+  const seriesData = chartData.filter((d) => d[2] > 0);
+  const values = seriesData.map((d) => d[1]);
+  const hasData = values.length > 0;
+  const dataMin = hasData ? Math.min(...values) : 0;
+  const dataMax = hasData ? Math.max(...values) : 1;
 
-  const rangeMin = isNet ? Math.min(minVal, 0) : 0;
-  const rangeMax = isNet ? Math.max(maxVal, 0) : maxVal;
+  // Stretch the scale across this month's actual range so contrast is proportional per month, not anchored at zero.
+  const flat = dataMin === dataMax;
+  const netExtent = Math.max(Math.abs(dataMin), Math.abs(dataMax), 0.01);
+  const rangeMin = isNet ? -netExtent : flat ? dataMin - 1 : dataMin;
+  const rangeMax = isNet ? netExtent : dataMax;
 
-  const visualMapPieces = isNet
-    ? [
-        { min: rangeMin, max: 0, color: "#ef4444" },
-        { min: 0, max: rangeMax, color: "#10b981" },
-      ]
-    : undefined;
-
-  const visualMapInRange = isNet
-    ? undefined
-    : { color: ["#fca5a5", "#dc2626"] };
+  const visualMapColors = isNet
+    ? ["#dc2626", "#fecaca", "#bbf7d0", "#16a34a"]
+    : ["#fca5a5", "#dc2626"];
 
   const monthStart = `${year}-${month}-01`;
   const monthEnd = `${year}-${month}-${zeroPad(numDays)}`;
@@ -99,29 +98,18 @@ export default function CalendarHeatmap({ data, year, month, metric }: Props) {
           <div style="color:${c.tooltipMuted};margin-top:2px">${txn_count} transaction${txn_count !== 1 ? "s" : ""}</div>`;
       },
     },
-    visualMap: isNet
-      ? {
-          type: "piecewise",
-          pieces: visualMapPieces,
-          orient: "horizontal",
-          left: "center",
-          bottom: 0,
-          textStyle: { color: c.mutedForeground, fontSize: 11 },
-          itemWidth: 14,
-          itemHeight: 10,
-          formatter: (val: number) => formatCurrency(val),
-        }
-      : {
-          type: "continuous",
-          min: rangeMin,
-          max: rangeMax,
-          inRange: visualMapInRange,
-          orient: "horizontal",
-          left: "center",
-          bottom: 0,
-          textStyle: { color: c.mutedForeground, fontSize: 11 },
-          formatter: (val: number) => formatCurrency(val),
-        },
+    visualMap: {
+      type: "continuous",
+      min: rangeMin,
+      max: rangeMax,
+      inRange: { color: visualMapColors },
+      calculable: true,
+      orient: "horizontal",
+      left: "center",
+      bottom: 0,
+      textStyle: { color: c.mutedForeground, fontSize: 11 },
+      formatter: (val: number) => formatCurrency(val),
+    },
     calendar: {
       top: 30,
       left: 30,
@@ -150,7 +138,7 @@ export default function CalendarHeatmap({ data, year, month, metric }: Props) {
       {
         type: "heatmap",
         coordinateSystem: "calendar",
-        data: chartData,
+        data: seriesData,
         emphasis: {
           itemStyle: { shadowBlur: 8, shadowColor: "rgba(0,0,0,0.25)" },
         },
