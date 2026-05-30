@@ -16,6 +16,8 @@ import DrilldownChart from "@/components/calendar/drilldown-chart";
 import DrilldownBreadcrumb from "@/components/calendar/drilldown-breadcrumb";
 import CalendarHeatmap from "@/components/calendar/calendar-heatmap";
 import DayTransactions from "./day-transactions";
+import DayOfWeekPanel from "@/components/calendar/day-of-week-panel";
+import SeasonPanel from "@/components/calendar/season-panel";
 
 function EmptyState() {
   return (
@@ -174,27 +176,13 @@ export default async function CalendarPage({
               </div>
             )}
 
-            {/* Temporal panels (Phase 5) */}
-            <section className="rounded-lg border p-4">
-              <h3 className="mb-3 text-sm font-semibold">Day of Week</h3>
-              <pre className="overflow-auto text-xs">
-                {JSON.stringify(datasets.dowSeries, null, 2)}
-              </pre>
-            </section>
-
-            <section className="rounded-lg border p-4">
-              <h3 className="mb-3 text-sm font-semibold">Season</h3>
-              <pre className="overflow-auto text-xs">
-                {JSON.stringify(datasets.seasonSeries, null, 2)}
-              </pre>
-            </section>
-
-            <section className="rounded-lg border p-4">
-              <h3 className="mb-3 text-sm font-semibold">Month of Year</h3>
-              <pre className="overflow-auto text-xs">
-                {JSON.stringify(datasets.moySeries, null, 2)}
-              </pre>
-            </section>
+            {/* Temporal panels */}
+            <DayOfWeekPanel data={datasets.dowSeries} metric={metric} />
+            <SeasonPanel
+              seasonData={datasets.seasonSeries}
+              moyData={datasets.moySeries}
+              metric={metric}
+            />
           </div>
         )}
       </div>
