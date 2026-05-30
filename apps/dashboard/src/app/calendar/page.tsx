@@ -9,10 +9,13 @@ import {
   getSeasonSeries,
   getMonthOfYearSeries,
   getFilterOptions,
+  getTransactions,
 } from "@/server/data/repository";
 import CalendarClient from "./calendar-client";
 import DrilldownChart from "@/components/calendar/drilldown-chart";
 import DrilldownBreadcrumb from "@/components/calendar/drilldown-breadcrumb";
+import CalendarHeatmap from "@/components/calendar/calendar-heatmap";
+import DayTransactions from "./day-transactions";
 
 function EmptyState() {
   return (
@@ -53,12 +56,17 @@ export default async function CalendarPage({
   const month =
     rawMonth && /^(0[1-9]|1[0-2])$/.test(rawMonth) ? rawMonth : undefined;
 
+  const rawDay = typeof params.day === "string" ? params.day : undefined;
+  const day =
+    rawDay && /^\d{4}-\d{2}-\d{2}$/.test(rawDay) ? rawDay : undefined;
+
   const showShare = await canShare();
 
   let datasets: {
     yearSeries: Awaited<ReturnType<typeof getCalendarYearSeries>>;
     monthSeries: Awaited<ReturnType<typeof getCalendarMonthSeries>> | null;
     dayHeatmap: Awaited<ReturnType<typeof getCalendarDayHeatmap>> | null;
+    dayTransactions: Awaited<ReturnType<typeof getTransactions>> | null;
     dowSeries: Awaited<ReturnType<typeof getDayOfWeekSeries>>;
     seasonSeries: Awaited<ReturnType<typeof getSeasonSeries>>;
     moySeries: Awaited<ReturnType<typeof getMonthOfYearSeries>>;
@@ -85,10 +93,22 @@ export default async function CalendarPage({
         ? await getCalendarDayHeatmap(filters, metric, year, month)
         : null;
 
+    const dayTransactions =
+      year != null && month != null && day != null
+        ? await getTransactions(
+            { ...filters, startDate: day, endDate: day },
+            1,
+            100,
+            "transaction_date",
+            "asc"
+          )
+        : null;
+
     datasets = {
       yearSeries,
       monthSeries,
       dayHeatmap,
+      dayTransactions,
       dowSeries,
       seasonSeries,
       moySeries,
@@ -136,17 +156,21 @@ export default async function CalendarPage({
                 />
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-6">
                 <DrilldownBreadcrumb year={year} month={month} />
-                {/* Phase 4: heatmap + day-detail go here */}
-                <section className="rounded-lg border p-4">
-                  <h3 className="mb-3 text-sm font-semibold">
-                    Day Heatmap — {year}-{month} (Phase 4 placeholder)
-                  </h3>
-                  <pre className="overflow-auto text-xs">
-                    {JSON.stringify(datasets.dayHeatmap, null, 2)}
-                  </pre>
-                </section>
+                <CalendarHeatmap
+                  data={datasets.dayHeatmap ?? []}
+                  year={year}
+                  month={month}
+                  metric={metric}
+                />
+                {day != null && datasets.dayTransactions != null && (
+                  <DayTransactions
+                    day={day}
+                    transactions={datasets.dayTransactions.data}
+                    total={datasets.dayTransactions.total}
+                  />
+                )}
               </div>
             )}
 
