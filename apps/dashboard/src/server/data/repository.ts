@@ -17,6 +17,7 @@ import {
   accountSummaryQuery,
   calendarYearSeriesQuery,
   calendarMonthSeriesQuery,
+  calendarYearHeatmapQuery,
   calendarDayHeatmapQuery,
   dayOfWeekSeriesQuery,
   seasonSeriesQuery,
@@ -220,6 +221,15 @@ export async function getCalendarMonthSeries(
 ): Promise<CalendarMonthPoint[]> {
   const { sql, params } = calendarMonthSeriesQuery(filters, metric, year);
   return query<CalendarMonthPoint>(sql, params);
+}
+
+export async function getCalendarYearHeatmap(
+  filters: FilterParams,
+  metric: "expenses" | "net",
+  year: string
+): Promise<CalendarDayPoint[]> {
+  const { sql, params } = calendarYearHeatmapQuery(filters, metric, year);
+  return query<CalendarDayPoint>(sql, params);
 }
 
 export async function getCalendarDayHeatmap(

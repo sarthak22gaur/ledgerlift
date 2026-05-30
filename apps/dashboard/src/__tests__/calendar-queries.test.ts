@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   calendarYearSeriesQuery,
   calendarMonthSeriesQuery,
+  calendarYearHeatmapQuery,
   calendarDayHeatmapQuery,
   dayOfWeekSeriesQuery,
   seasonSeriesQuery,
@@ -90,6 +91,56 @@ describe("calendarMonthSeriesQuery", () => {
     const expensesSql = calendarMonthSeriesQuery({}, "expenses", "2024").sql;
     const netSql = calendarMonthSeriesQuery({}, "net", "2024").sql;
     expect(expensesSql).not.toEqual(netSql);
+  });
+});
+
+describe("calendarYearHeatmapQuery", () => {
+  it("groups by transaction_date", () => {
+    const { sql } = calendarYearHeatmapQuery({}, "expenses", "2025");
+    expect(sql).toContain("GROUP BY transaction_date");
+    expect(sql).toContain("ORDER BY date");
+  });
+
+  it("selects date, value, txn_count", () => {
+    const { sql } = calendarYearHeatmapQuery({}, "expenses", "2025");
+    expect(sql).toContain("AS date");
+    expect(sql).toContain("AS value");
+    expect(sql).toContain("AS txn_count");
+  });
+
+  it("filters by strftime('%Y') year predicate", () => {
+    const { sql } = calendarYearHeatmapQuery({}, "expenses", "2025");
+    expect(sql).toContain("strftime('%Y', transaction_date) = ?");
+  });
+
+  it("year param is last when no filters", () => {
+    const { params } = calendarYearHeatmapQuery({}, "expenses", "2025");
+    expect(params).toEqual(["2025"]);
+  });
+
+  it("filter params precede the year param", () => {
+    const filters = { institutions: ["chase"], startDate: "2025-01-01" };
+    const { params } = calendarYearHeatmapQuery(filters, "expenses", "2025");
+    expect(params[0]).toBe("2025-01-01");
+    expect(params[1]).toBe("chase");
+    expect(params[params.length - 1]).toBe("2025");
+  });
+
+  it("applies NOT_INTERNAL_FLOW predicate", () => {
+    const { sql } = calendarYearHeatmapQuery({}, "expenses", "2025");
+    expect(sql).toContain(NOT_INTERNAL_FLOW_FRAGMENT);
+  });
+
+  it("expenses metric uses ABS(amount) expression", () => {
+    const { sql } = calendarYearHeatmapQuery({}, "expenses", "2025");
+    expect(sql).toContain("ABS(amount)");
+  });
+
+  it("net metric differs from expenses metric", () => {
+    const expensesSql = calendarYearHeatmapQuery({}, "expenses", "2025").sql;
+    const netSql = calendarYearHeatmapQuery({}, "net", "2025").sql;
+    expect(expensesSql).not.toEqual(netSql);
+    expect(netSql).toContain("SUM(CASE WHEN amount > 0");
   });
 });
 

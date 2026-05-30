@@ -4,6 +4,7 @@ import { parseFilters } from "@/lib/filters";
 import {
   getCalendarYearSeries,
   getCalendarMonthSeries,
+  getCalendarYearHeatmap,
   getCalendarDayHeatmap,
   getDayOfWeekSeries,
   getSeasonSeries,
@@ -15,6 +16,7 @@ import CalendarClient from "./calendar-client";
 import DrilldownChart from "@/components/calendar/drilldown-chart";
 import DrilldownBreadcrumb from "@/components/calendar/drilldown-breadcrumb";
 import CalendarHeatmap from "@/components/calendar/calendar-heatmap";
+import YearHeatmap from "@/components/calendar/year-heatmap";
 import DayTransactions from "./day-transactions";
 import DayOfWeekPanel from "@/components/calendar/day-of-week-panel";
 import SeasonPanel from "@/components/calendar/season-panel";
@@ -67,6 +69,7 @@ export default async function CalendarPage({
   let datasets: {
     yearSeries: Awaited<ReturnType<typeof getCalendarYearSeries>>;
     monthSeries: Awaited<ReturnType<typeof getCalendarMonthSeries>> | null;
+    yearHeatmap: Awaited<ReturnType<typeof getCalendarYearHeatmap>> | null;
     dayHeatmap: Awaited<ReturnType<typeof getCalendarDayHeatmap>> | null;
     dayTransactions: Awaited<ReturnType<typeof getTransactions>> | null;
     dowSeries: Awaited<ReturnType<typeof getDayOfWeekSeries>>;
@@ -90,13 +93,18 @@ export default async function CalendarPage({
         ? await getCalendarMonthSeries(filters, metric, year)
         : null;
 
+    const yearHeatmap =
+      year != null && month == null
+        ? await getCalendarYearHeatmap(filters, metric, year)
+        : null;
+
     const dayHeatmap =
       year != null && month != null
         ? await getCalendarDayHeatmap(filters, metric, year, month)
         : null;
 
     const dayTransactions =
-      year != null && month != null && day != null
+      day != null
         ? await getTransactions(
             { ...filters, startDate: day, endDate: day },
             1,
@@ -109,6 +117,7 @@ export default async function CalendarPage({
     datasets = {
       yearSeries,
       monthSeries,
+      yearHeatmap,
       dayHeatmap,
       dayTransactions,
       dowSeries,
@@ -147,14 +156,26 @@ export default async function CalendarPage({
                 metric={metric}
               />
             ) : month == null ? (
-              <div className="space-y-3">
+              <div className="space-y-6">
                 <DrilldownBreadcrumb year={year} />
+                <YearHeatmap
+                  data={datasets.yearHeatmap ?? []}
+                  year={year}
+                  metric={metric}
+                />
                 <DrilldownChart
                   mode="month"
                   data={datasets.monthSeries ?? []}
                   metric={metric}
                   year={year}
                 />
+                {day != null && datasets.dayTransactions != null && (
+                  <DayTransactions
+                    day={day}
+                    transactions={datasets.dayTransactions.data}
+                    total={datasets.dayTransactions.total}
+                  />
+                )}
               </div>
             ) : (
               <div className="space-y-6">

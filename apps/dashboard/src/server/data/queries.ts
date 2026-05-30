@@ -572,6 +572,30 @@ export function calendarMonthSeriesQuery(
   return { sql, params };
 }
 
+export function calendarYearHeatmapQuery(
+  filters: FilterParams,
+  metric: CalendarMetric,
+  year: string
+): QueryParts {
+  const { clause, params } = buildWhereClause(filters);
+  const realCondition = clause
+    ? `${clause} AND ${NOT_INTERNAL_FLOW} AND strftime('%Y', transaction_date) = ?`
+    : `WHERE ${NOT_INTERNAL_FLOW} AND strftime('%Y', transaction_date) = ?`;
+  params.push(year);
+  const { valueExpr } = metricExpressions(metric);
+  const sql = `
+    SELECT
+      transaction_date AS date,
+      ${valueExpr} AS value,
+      COUNT(*) AS txn_count
+    FROM transactions
+    ${realCondition}
+    GROUP BY transaction_date
+    ORDER BY date
+  `;
+  return { sql, params };
+}
+
 export function calendarDayHeatmapQuery(
   filters: FilterParams,
   metric: CalendarMetric,

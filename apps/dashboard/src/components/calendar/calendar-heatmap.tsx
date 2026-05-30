@@ -18,6 +18,13 @@ import { cn } from "@/lib/utils";
 import { formatDate, formatMonth } from "@/lib/date";
 import { formatCurrency } from "@/lib/currency";
 import type { CalendarDayPoint } from "@/server/data/types";
+import {
+  symlog,
+  invSymlog,
+  buildScaleDomain,
+  EXPENSE_COLORS,
+  NET_COLORS,
+} from "./heatmap-scale";
 
 echarts.use([
   HeatmapChart,
@@ -49,15 +56,6 @@ function zeroPad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-// Sign-preserving log so a few outlier days don't flatten the scale; handles net-negative days and zero.
-function symlog(x: number): number {
-  return Math.sign(x) * Math.log1p(Math.abs(x));
-}
-
-function invSymlog(y: number): number {
-  return Math.sign(y) * Math.expm1(Math.abs(y));
-}
-
 export default function CalendarHeatmap({ data, year, month, metric }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -86,19 +84,9 @@ export default function CalendarHeatmap({ data, year, month, metric }: Props) {
     .filter((d) => d[2] > 0)
     .map((d) => [d[0], d[1], d[2], toColor(d[1])]);
   const values = seriesData.map((d) => d[1]);
-  const hasData = values.length > 0;
-  const dataMin = hasData ? Math.min(...values) : 0;
-  const dataMax = hasData ? Math.max(...values) : 1;
-
   // Stretch the scale across this month's actual range so contrast is proportional per month, not anchored at zero.
-  const flat = dataMin === dataMax;
-  const netExtent = Math.max(Math.abs(dataMin), Math.abs(dataMax), 0.01);
-  const rangeMin = isNet ? -netExtent : flat ? dataMin - 1 : dataMin;
-  const rangeMax = isNet ? netExtent : dataMax;
-
-  const visualMapColors = isNet
-    ? ["#dc2626", "#fca5a5", "#fee2e2", "#bbf7d0", "#16a34a"]
-    : ["#fecaca", "#f87171", "#dc2626", "#7f1d1d"];
+  const { rangeMin, rangeMax } = buildScaleDomain(values, isNet);
+  const visualMapColors = isNet ? [...NET_COLORS] : [...EXPENSE_COLORS];
 
   const monthStart = `${year}-${month}-01`;
   const monthEnd = `${year}-${month}-${zeroPad(numDays)}`;
