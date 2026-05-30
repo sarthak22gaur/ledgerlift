@@ -11,6 +11,8 @@ import {
   getFilterOptions,
 } from "@/server/data/repository";
 import CalendarClient from "./calendar-client";
+import DrilldownChart from "@/components/calendar/drilldown-chart";
+import DrilldownBreadcrumb from "@/components/calendar/drilldown-breadcrumb";
 
 function EmptyState() {
   return (
@@ -109,48 +111,46 @@ export default async function CalendarPage({
         <CalendarClient
           institutions={datasets.filterOptions.institutions}
           categories={datasets.filterOptions.categories}
+          metric={metric}
         />
 
         {!hasData ? (
           <EmptyState />
         ) : (
           <div className="space-y-6">
-            <div className="rounded-lg border p-4">
-              <p className="mb-2 text-sm font-medium text-muted-foreground">
-                metric: {metric} | year: {year ?? "(none)"} | month:{" "}
-                {month ?? "(none)"}
-              </p>
-            </div>
-
-            <section className="rounded-lg border p-4">
-              <h3 className="mb-3 text-sm font-semibold">Year Series</h3>
-              <pre className="overflow-auto text-xs">
-                {JSON.stringify(datasets.yearSeries, null, 2)}
-              </pre>
-            </section>
-
-            {datasets.monthSeries != null && (
-              <section className="rounded-lg border p-4">
-                <h3 className="mb-3 text-sm font-semibold">
-                  Month Series ({year})
-                </h3>
-                <pre className="overflow-auto text-xs">
-                  {JSON.stringify(datasets.monthSeries, null, 2)}
-                </pre>
-              </section>
+            {/* Drill-down area */}
+            {year == null ? (
+              <DrilldownChart
+                mode="year"
+                data={datasets.yearSeries}
+                metric={metric}
+              />
+            ) : month == null ? (
+              <div className="space-y-3">
+                <DrilldownBreadcrumb year={year} />
+                <DrilldownChart
+                  mode="month"
+                  data={datasets.monthSeries ?? []}
+                  metric={metric}
+                  year={year}
+                />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <DrilldownBreadcrumb year={year} month={month} />
+                {/* Phase 4: heatmap + day-detail go here */}
+                <section className="rounded-lg border p-4">
+                  <h3 className="mb-3 text-sm font-semibold">
+                    Day Heatmap — {year}-{month} (Phase 4 placeholder)
+                  </h3>
+                  <pre className="overflow-auto text-xs">
+                    {JSON.stringify(datasets.dayHeatmap, null, 2)}
+                  </pre>
+                </section>
+              </div>
             )}
 
-            {datasets.dayHeatmap != null && (
-              <section className="rounded-lg border p-4">
-                <h3 className="mb-3 text-sm font-semibold">
-                  Day Heatmap ({year}-{month})
-                </h3>
-                <pre className="overflow-auto text-xs">
-                  {JSON.stringify(datasets.dayHeatmap, null, 2)}
-                </pre>
-              </section>
-            )}
-
+            {/* Temporal panels (Phase 5) */}
             <section className="rounded-lg border p-4">
               <h3 className="mb-3 text-sm font-semibold">Day of Week</h3>
               <pre className="overflow-auto text-xs">
