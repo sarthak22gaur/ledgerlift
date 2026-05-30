@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import ReactEChartsCore from "echarts-for-react/lib/core";
 import * as echarts from "echarts/core";
 import { HeatmapChart } from "echarts/charts";
@@ -12,6 +13,8 @@ import { CanvasRenderer } from "echarts/renderers";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useChartColors } from "@/components/charts/use-chart-colors";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { formatDate, formatMonth } from "@/lib/date";
 import { formatCurrency } from "@/lib/currency";
 import type { CalendarDayPoint } from "@/server/data/types";
@@ -31,9 +34,11 @@ type Props = {
   metric: "expenses" | "net";
 };
 
+type HeatmapPoint = [string, number, number, number];
+
 type EChartsHeatmapParam = {
-  data: [string, number, number];
-  value: [string, number, number];
+  data: HeatmapPoint;
+  value: HeatmapPoint;
 };
 
 function daysInMonth(year: number, month: number): number {
@@ -44,13 +49,24 @@ function zeroPad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
+// Sign-preserving log so a few outlier days don't flatten the scale; handles net-negative days and zero.
+function symlog(x: number): number {
+  return Math.sign(x) * Math.log1p(Math.abs(x));
+}
+
+function invSymlog(y: number): number {
+  return Math.sign(y) * Math.expm1(Math.abs(y));
+}
+
 export default function CalendarHeatmap({ data, year, month, metric }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const c = useChartColors();
+  const [scale, setScale] = useState<"linear" | "log">("linear");
 
   const isNet = metric === "net";
+  const toColor = scale === "log" ? symlog : (x: number) => x;
 
   const byDate: Record<string, { value: number; txn_count: number }> = {};
   for (const row of data) {
@@ -65,7 +81,10 @@ export default function CalendarHeatmap({ data, year, month, metric }: Props) {
   });
 
   // Drop no-transaction days so they render as empty cells instead of pinning the low end of the scale.
-  const seriesData = chartData.filter((d) => d[2] > 0);
+  // The 4th dimension carries the color value so the scale transform stays independent of the tooltip amount.
+  const seriesData: HeatmapPoint[] = chartData
+    .filter((d) => d[2] > 0)
+    .map((d) => [d[0], d[1], d[2], toColor(d[1])]);
   const values = seriesData.map((d) => d[1]);
   const hasData = values.length > 0;
   const dataMin = hasData ? Math.min(...values) : 0;
@@ -78,8 +97,8 @@ export default function CalendarHeatmap({ data, year, month, metric }: Props) {
   const rangeMax = isNet ? netExtent : dataMax;
 
   const visualMapColors = isNet
-    ? ["#dc2626", "#fecaca", "#bbf7d0", "#16a34a"]
-    : ["#fca5a5", "#dc2626"];
+    ? ["#dc2626", "#fca5a5", "#fee2e2", "#bbf7d0", "#16a34a"]
+    : ["#fecaca", "#f87171", "#dc2626", "#7f1d1d"];
 
   const monthStart = `${year}-${month}-01`;
   const monthEnd = `${year}-${month}-${zeroPad(numDays)}`;
@@ -100,15 +119,17 @@ export default function CalendarHeatmap({ data, year, month, metric }: Props) {
     },
     visualMap: {
       type: "continuous",
-      min: rangeMin,
-      max: rangeMax,
+      dimension: 3,
+      min: toColor(rangeMin),
+      max: toColor(rangeMax),
       inRange: { color: visualMapColors },
       calculable: true,
       orient: "horizontal",
       left: "center",
       bottom: 0,
       textStyle: { color: c.mutedForeground, fontSize: 11 },
-      formatter: (val: number) => formatCurrency(val),
+      formatter: (val: number) =>
+        formatCurrency(scale === "log" ? invSymlog(val) : val),
     },
     calendar: {
       top: 30,
@@ -156,8 +177,26 @@ export default function CalendarHeatmap({ data, year, month, metric }: Props) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle>{title}</CardTitle>
+        <div className="inline-flex items-center gap-1 rounded-lg border border-border p-0.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setScale("linear")}
+            className={cn("rounded-md", scale === "linear" && "bg-muted text-foreground")}
+          >
+            Linear
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setScale("log")}
+            className={cn("rounded-md", scale === "log" && "bg-muted text-foreground")}
+          >
+            Log
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <ReactEChartsCore
