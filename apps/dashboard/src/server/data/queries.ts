@@ -516,6 +516,162 @@ export function ruleImpactQuery(kind: ImpactKind, ruleId: string): QueryParts {
   return { sql, params: [...params, ...params] };
 }
 
+type CalendarMetric = "expenses" | "net";
+
+function metricExpressions(metric: CalendarMetric): { valueExpr: string } {
+  const incomeExpression = `CASE WHEN amount > 0 AND ${NOT_UNPAIRED_CC_PAYMENT_CREDIT} AND ${NOT_REIMBURSEMENT_IN} THEN amount ELSE 0 END`;
+  const expensesExpression = `SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) - SUM(${REIMBURSEMENT_IN_AMOUNT})`;
+  const valueExpr =
+    metric === "net"
+      ? `COALESCE(SUM(${incomeExpression}), 0) - COALESCE(${expensesExpression}, 0)`
+      : `COALESCE(${expensesExpression}, 0)`;
+  return { valueExpr };
+}
+
+export function calendarYearSeriesQuery(
+  filters: FilterParams,
+  metric: CalendarMetric
+): QueryParts {
+  const { clause, params } = buildWhereClause(filters);
+  const realCondition = clause
+    ? `${clause} AND ${NOT_INTERNAL_FLOW}`
+    : `WHERE ${NOT_INTERNAL_FLOW}`;
+  const { valueExpr } = metricExpressions(metric);
+  const sql = `
+    SELECT
+      strftime('%Y', transaction_date) AS year,
+      ${valueExpr} AS value
+    FROM transactions
+    ${realCondition}
+    GROUP BY strftime('%Y', transaction_date)
+    ORDER BY year
+  `;
+  return { sql, params };
+}
+
+export function calendarMonthSeriesQuery(
+  filters: FilterParams,
+  metric: CalendarMetric,
+  year: string
+): QueryParts {
+  const { clause, params } = buildWhereClause(filters);
+  const realCondition = clause
+    ? `${clause} AND ${NOT_INTERNAL_FLOW} AND strftime('%Y', transaction_date) = ?`
+    : `WHERE ${NOT_INTERNAL_FLOW} AND strftime('%Y', transaction_date) = ?`;
+  params.push(year);
+  const { valueExpr } = metricExpressions(metric);
+  const sql = `
+    SELECT
+      strftime('%m', transaction_date) AS month,
+      ${valueExpr} AS value
+    FROM transactions
+    ${realCondition}
+    GROUP BY strftime('%m', transaction_date)
+    ORDER BY month
+  `;
+  return { sql, params };
+}
+
+export function calendarDayHeatmapQuery(
+  filters: FilterParams,
+  metric: CalendarMetric,
+  year: string,
+  month: string
+): QueryParts {
+  const { clause, params } = buildWhereClause(filters);
+  const yearMonth = `${year}-${month}`;
+  const realCondition = clause
+    ? `${clause} AND ${NOT_INTERNAL_FLOW} AND strftime('%Y-%m', transaction_date) = ?`
+    : `WHERE ${NOT_INTERNAL_FLOW} AND strftime('%Y-%m', transaction_date) = ?`;
+  params.push(yearMonth);
+  const { valueExpr } = metricExpressions(metric);
+  const sql = `
+    SELECT
+      transaction_date AS date,
+      ${valueExpr} AS value,
+      COUNT(*) AS txn_count
+    FROM transactions
+    ${realCondition}
+    GROUP BY transaction_date
+    ORDER BY date
+  `;
+  return { sql, params };
+}
+
+export function dayOfWeekSeriesQuery(
+  filters: FilterParams,
+  metric: CalendarMetric
+): QueryParts {
+  const { clause, params } = buildWhereClause(filters);
+  const realCondition = clause
+    ? `${clause} AND ${NOT_INTERNAL_FLOW}`
+    : `WHERE ${NOT_INTERNAL_FLOW}`;
+  const { valueExpr } = metricExpressions(metric);
+  const sql = `
+    SELECT
+      strftime('%w', transaction_date) AS dow,
+      ${valueExpr} AS value,
+      COUNT(*) AS txn_count,
+      CAST(${valueExpr} AS REAL) / NULLIF(COUNT(DISTINCT transaction_date), 0) AS avg_value
+    FROM transactions
+    ${realCondition}
+    GROUP BY strftime('%w', transaction_date)
+    ORDER BY dow
+  `;
+  return { sql, params };
+}
+
+export function seasonSeriesQuery(
+  filters: FilterParams,
+  metric: CalendarMetric
+): QueryParts {
+  const { clause, params } = buildWhereClause(filters);
+  const realCondition = clause
+    ? `${clause} AND ${NOT_INTERNAL_FLOW}`
+    : `WHERE ${NOT_INTERNAL_FLOW}`;
+  const { valueExpr } = metricExpressions(metric);
+  // Meteorological seasons, northern hemisphere
+  const seasonExpr = `CASE strftime('%m', transaction_date)
+    WHEN '12' THEN 'Winter' WHEN '01' THEN 'Winter' WHEN '02' THEN 'Winter'
+    WHEN '03' THEN 'Spring' WHEN '04' THEN 'Spring' WHEN '05' THEN 'Spring'
+    WHEN '06' THEN 'Summer' WHEN '07' THEN 'Summer' WHEN '08' THEN 'Summer'
+    ELSE 'Autumn'
+  END`;
+  const sql = `
+    SELECT
+      ${seasonExpr} AS season,
+      ${valueExpr} AS value,
+      COUNT(*) AS txn_count
+    FROM transactions
+    ${realCondition}
+    GROUP BY ${seasonExpr}
+    ORDER BY season
+  `;
+  return { sql, params };
+}
+
+export function monthOfYearSeriesQuery(
+  filters: FilterParams,
+  metric: CalendarMetric
+): QueryParts {
+  const { clause, params } = buildWhereClause(filters);
+  const realCondition = clause
+    ? `${clause} AND ${NOT_INTERNAL_FLOW}`
+    : `WHERE ${NOT_INTERNAL_FLOW}`;
+  const { valueExpr } = metricExpressions(metric);
+  const sql = `
+    SELECT
+      strftime('%m', transaction_date) AS month,
+      ${valueExpr} AS value,
+      COUNT(*) AS txn_count
+    FROM transactions
+    ${realCondition}
+    GROUP BY strftime('%m', transaction_date)
+    ORDER BY month
+  `;
+  return { sql, params };
+}
+
 export function accountSummaryQuery(filters: FilterParams): QueryParts {
   const { clause, params } = buildWhereClause(filters);
 

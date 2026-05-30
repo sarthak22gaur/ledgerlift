@@ -129,3 +129,24 @@ export type PaginatedResult<T> = {
   page: number;
   pageSize: number;
 };
+
+export type CalendarYearPoint = { year: string; value: number };
+
+export type CalendarMonthPoint = { month: string; value: number };
+
+export type CalendarDayPoint = { date: string; value: number; txn_count: number };
+
+export type DayOfWeekPoint = {
+  dow: string;
+  value: number;
+  txn_count: number;
+  avg_value: number;
+};
+
+export type SeasonPoint = {
+  season: "Winter" | "Spring" | "Summer" | "Autumn";
+  value: number;
+  txn_count: number;
+};
+
+export type MonthOfYearPoint = { month: string; value: number; txn_count: number };

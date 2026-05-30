@@ -15,6 +15,12 @@ import {
   transferCandidatesQuery,
   transferPairsQuery,
   accountSummaryQuery,
+  calendarYearSeriesQuery,
+  calendarMonthSeriesQuery,
+  calendarDayHeatmapQuery,
+  dayOfWeekSeriesQuery,
+  seasonSeriesQuery,
+  monthOfYearSeriesQuery,
 } from "./queries";
 import type {
   FilterParams,
@@ -25,6 +31,12 @@ import type {
   Transaction,
   TransferPair,
   PaginatedResult,
+  CalendarYearPoint,
+  CalendarMonthPoint,
+  CalendarDayPoint,
+  DayOfWeekPoint,
+  SeasonPoint,
+  MonthOfYearPoint,
 } from "./types";
 
 export async function getOverviewMetrics(
@@ -191,6 +203,57 @@ export async function getAccountSummary(
 > {
   const { sql, params } = accountSummaryQuery(filters);
   return query(sql, params);
+}
+
+export async function getCalendarYearSeries(
+  filters: FilterParams,
+  metric: "expenses" | "net"
+): Promise<CalendarYearPoint[]> {
+  const { sql, params } = calendarYearSeriesQuery(filters, metric);
+  return query<CalendarYearPoint>(sql, params);
+}
+
+export async function getCalendarMonthSeries(
+  filters: FilterParams,
+  metric: "expenses" | "net",
+  year: string
+): Promise<CalendarMonthPoint[]> {
+  const { sql, params } = calendarMonthSeriesQuery(filters, metric, year);
+  return query<CalendarMonthPoint>(sql, params);
+}
+
+export async function getCalendarDayHeatmap(
+  filters: FilterParams,
+  metric: "expenses" | "net",
+  year: string,
+  month: string
+): Promise<CalendarDayPoint[]> {
+  const { sql, params } = calendarDayHeatmapQuery(filters, metric, year, month);
+  return query<CalendarDayPoint>(sql, params);
+}
+
+export async function getDayOfWeekSeries(
+  filters: FilterParams,
+  metric: "expenses" | "net"
+): Promise<DayOfWeekPoint[]> {
+  const { sql, params } = dayOfWeekSeriesQuery(filters, metric);
+  return query<DayOfWeekPoint>(sql, params);
+}
+
+export async function getSeasonSeries(
+  filters: FilterParams,
+  metric: "expenses" | "net"
+): Promise<SeasonPoint[]> {
+  const { sql, params } = seasonSeriesQuery(filters, metric);
+  return query<SeasonPoint>(sql, params);
+}
+
+export async function getMonthOfYearSeries(
+  filters: FilterParams,
+  metric: "expenses" | "net"
+): Promise<MonthOfYearPoint[]> {
+  const { sql, params } = monthOfYearSeriesQuery(filters, metric);
+  return query<MonthOfYearPoint>(sql, params);
 }
 
 export async function getDateRange(): Promise<{
