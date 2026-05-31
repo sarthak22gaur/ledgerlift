@@ -163,12 +163,6 @@ export default async function CalendarPage({
                   year={year}
                   metric={metric}
                 />
-                <DrilldownChart
-                  mode="month"
-                  data={datasets.monthSeries ?? []}
-                  metric={metric}
-                  year={year}
-                />
                 {day != null && datasets.dayTransactions != null && (
                   <DayTransactions
                     day={day}
@@ -176,6 +170,12 @@ export default async function CalendarPage({
                     total={datasets.dayTransactions.total}
                   />
                 )}
+                <DrilldownChart
+                  mode="month"
+                  data={datasets.monthSeries ?? []}
+                  metric={metric}
+                  year={year}
+                />
               </div>
             ) : (
               <div className="space-y-6">
