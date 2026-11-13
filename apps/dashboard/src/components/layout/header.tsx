@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ShareButton from "@/components/layout/share-button";
@@ -14,15 +14,9 @@ type HeaderProps = {
 };
 
 export default function Header({ pageTitle, canShare, children }: HeaderProps) {
-  const [dark, setDark] = useState(() =>
-    typeof document !== "undefined" && document.documentElement.classList.contains("dark")
-  );
-
   const toggle = useCallback(() => {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-  }, [dark]);
+    document.documentElement.classList.toggle("dark");
+  }, []);
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-6">
@@ -32,7 +26,8 @@ export default function Header({ pageTitle, canShare, children }: HeaderProps) {
         {children}
         {canShare && <ShareButton />}
         <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle dark mode">
-          {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+          <Sun className="hidden size-4 dark:block" />
+          <Moon className="size-4 dark:hidden" />
         </Button>
       </div>
     </header>

@@ -93,6 +93,8 @@ class ParsedStatement(BaseModel):
     raw_transactions: list[RawTransaction]
     extracted_text: str
     warnings: list[str] = Field(default_factory=list)
+    extraction_errors: list[str] = Field(default_factory=list)
+    empty_statement: bool = False
     parser_name: str
     parser_version: str
 

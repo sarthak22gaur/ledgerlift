@@ -42,6 +42,33 @@ def _make_txn(
     )
 
 
+@pytest.mark.parametrize(
+    ("description", "transaction_type", "is_cash"),
+    [
+        ("ACH Direct Withdrawal - EXAMPLE VENDOR", TransactionType.ACH, False),
+        ("Electronic Withdrawal EXAMPLE VENDOR", TransactionType.WITHDRAWAL, False),
+        ("ATM Withdrawal", TransactionType.ATM, True),
+        ("07/18 Withdrawal", TransactionType.WITHDRAWAL, True),
+        ("Non-Chase ATM Withdraw", TransactionType.ATM, True),
+        ("Cash Withdrawal", TransactionType.WITHDRAWAL, True),
+    ],
+)
+def test_cash_withdrawal_requires_cash_evidence(
+    description: str, transaction_type: TransactionType, is_cash: bool
+) -> None:
+    rules = yaml.safe_load(CATEGORY_RULES_BASE_PATH.read_text())["rules"]
+    engine = RuleEngine(
+        _merchant_rules_raw=[],
+        _category_rules_raw=rules,
+        _merchant_overrides_raw=[],
+        _category_overrides_raw=[],
+        _internal_counterparties=set(),
+        enable_fuzzy=False,
+    )
+    result = engine.enrich(_make_txn(description, transaction_type=transaction_type))
+    assert (result.category_normalized == "ATM / Cash Withdrawal") is is_cash
+
+
 # --- Text cleaning tests ---
 
 

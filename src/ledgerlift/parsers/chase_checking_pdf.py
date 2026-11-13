@@ -43,15 +43,16 @@ from ledgerlift.utils.text import clean_raw_text, normalize_whitespace
 logger = logging.getLogger(__name__)
 
 PARSER_NAME = "chase_checking_pdf"
-PARSER_VERSION = "0.3.0"
+PARSER_VERSION = "0.4.0"
 
 # --- Section boundary markers ---
 # Chase PDFs embed these markers in the extracted text.
 # The end marker sometimes has a digit replacing the "t" in "transaction":
 #   *end*transac1tion detail   (digit 1)
 #   *end*transac0tion detail   (digit 0)
-TXN_START_RE = re.compile(r"\*start\*transaction detail")
-TXN_END_RE = re.compile(r"\*end\*transac\d?tion detail")
+TXN_START_RE = re.compile(r"\*start\*transaction\s*detail", re.IGNORECASE)
+TXN_END_RE = re.compile(r"\*end\*transac(\d)?tion\s*detail", re.IGNORECASE)
+TRANSACTION_CANDIDATE_RE = re.compile(r"^\d{1,2}/\d{1,2}\s+.*\d[,.]\d{2}")
 
 # --- Sub-section headers inside transaction detail ---
 CREDIT_SECTIONS = {
@@ -151,6 +152,7 @@ class ChaseCheckingPDFParser(BaseParser):
         """Parse a Chase checking PDF statement."""
         logger.info("Parsing Chase checking statement: %s", pdf_path.name)
         warnings: list[str] = []
+        extraction_errors: list[str] = []
 
         try:
             pages = extract_text_pages(pdf_path)
@@ -167,19 +169,43 @@ class ChaseCheckingPDFParser(BaseParser):
         metadata = self._extract_metadata(full_text, pdf_path)
         if metadata.statement_start_date is None:
             warnings.append("Could not detect statement period")
+            extraction_errors.append("Statement period not detected")
 
         year = self._determine_year(metadata, pdf_path)
 
         # Extract only the transaction detail sections
         txn_lines = self._extract_transaction_lines(full_text)
-        if not txn_lines:
+        if not TXN_START_RE.search(full_text):
             warnings.append("No transaction detail section found")
+            extraction_errors.append("Transaction detail section not detected")
+        elif not TXN_END_RE.search(full_text):
+            extraction_errors.append("Transaction detail section end not detected")
 
         # Parse transaction lines
-        raw_transactions = self._parse_transaction_lines(txn_lines, warnings)
+        raw_transactions = self._parse_transaction_lines(txn_lines, warnings, extraction_errors)
 
-        if not raw_transactions:
+        explicit_empty = any(
+            re.fullmatch(r"no (?:transactions|activity)\.?", line, re.IGNORECASE)
+            for line in txn_lines
+        )
+        summary_has_activity = any(
+            parse_amount(match.group(2))
+            for line in full_text.splitlines()
+            if (match := SUMMARY_LINE_RE.match(line.strip()))
+        )
+        empty_statement = (
+            explicit_empty and not raw_transactions and not extraction_errors
+            and metadata.beginning_balance is not None
+            and metadata.beginning_balance == metadata.ending_balance
+            and not metadata.total_credits and not metadata.total_debits
+            and not summary_has_activity
+        )
+
+        if not raw_transactions and not empty_statement:
             warnings.append("No transactions extracted from statement")
+            extraction_errors.append("No transactions extracted without evidence of an empty statement")
+        elif explicit_empty and raw_transactions:
+            extraction_errors.append("Empty-statement notice contradicts transaction rows")
 
         # Infer direction from summary if sub-headers weren't found
         self._infer_directions_from_summary(raw_transactions, metadata, warnings)
@@ -195,6 +221,8 @@ class ChaseCheckingPDFParser(BaseParser):
             raw_transactions=raw_transactions,
             extracted_text=full_text,
             warnings=warnings,
+            extraction_errors=extraction_errors,
+            empty_statement=empty_statement,
             parser_name=self.name,
             parser_version=self.version,
         )
@@ -282,7 +310,7 @@ class ChaseCheckingPDFParser(BaseParser):
                 continue
 
             # Check for end marker
-            end_match = re.search(r"\*end\*transac(\d)?tion detail", stripped)
+            end_match = TXN_END_RE.search(stripped)
             if end_match:
                 # The end marker can be glued to transaction text, e.g.:
                 # "*end*transac1tion detail1/17 Card Purchase Return..."
@@ -308,14 +336,14 @@ class ChaseCheckingPDFParser(BaseParser):
         return txn_lines
 
     def _parse_transaction_lines(
-        self, lines: list[str], warnings: list[str]
+        self, lines: list[str], warnings: list[str], errors: list[str] | None = None
     ) -> list[RawTransaction]:
         """Parse extracted transaction lines into RawTransaction objects."""
         transactions: list[RawTransaction] = []
         current_section: str | None = None
         pending: RawTransaction | None = None
 
-        for line in lines:
+        for line_number, line in enumerate(lines, 1):
             if not line:
                 continue
 
@@ -372,6 +400,11 @@ class ChaseCheckingPDFParser(BaseParser):
                     direction=direction,
                     section=current_section,
                 )
+                continue
+
+            if TRANSACTION_CANDIDATE_RE.match(line):
+                if errors is not None:
+                    errors.append(f"Unrecognized transaction row in transaction detail at section line {line_number}")
                 continue
 
             # Continuation line — append to pending transaction description

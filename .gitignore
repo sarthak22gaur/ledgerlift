@@ -52,9 +52,14 @@ node_modules/
 # Audit / private notes (lives in vault repo)
 AUDIT.md
 
-# Generated agent surfaces (source of truth is agents/)
-/.agents/
-/.claude/
-/.codex/
-/.opencode/
+# Local generated workspace guide
 /AGENTS.md
+
+# >>> agentsync >>>
+.claude/
+.codex/
+.opencode/
+.github/agents/
+.github/skills/
+.agents/
+# <<< agentsync <<<

@@ -938,6 +938,39 @@ def upsert_statement(
     conn.commit()
 
 
+def replace_parsed_statement(
+    conn: sqlite3.Connection,
+    statement: dict[str, Any],
+    raw_rows: list[dict[str, Any]],
+    transaction_rows: list[dict[str, Any]],
+    now_iso: str,
+) -> None:
+    """Commit a validated statement and its derived records as one replacement."""
+    columns = list(statement)
+    placeholders = ", ".join("?" for _ in columns)
+    updates = ", ".join(f"{c} = excluded.{c}" for c in columns if c != "id")
+    with conn:
+        conn.execute(
+            f"INSERT INTO statements ({', '.join(columns)}) VALUES ({placeholders}) "
+            f"ON CONFLICT(id) DO UPDATE SET {updates}",
+            [statement[c] for c in columns],
+        )
+        conn.execute("DELETE FROM raw_transactions WHERE statement_id = ?", (statement["id"],))
+        conn.execute("DELETE FROM transactions WHERE source_file_hash = ?", (statement["source_file_hash"],))
+        for table, rows in (("raw_transactions", raw_rows), ("transactions", transaction_rows)):
+            if rows:
+                cols = list(rows[0])
+                conn.executemany(
+                    f"INSERT INTO {table} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})",
+                    [[row[c] for c in cols] for row in rows],
+                )
+        conn.execute(
+            "UPDATE source_files SET parse_status = 'parsed', parsed_at = ?, "
+            "parse_error = NULL, enrich_status = 'pending' WHERE file_hash = ?",
+            (now_iso, statement["source_file_hash"]),
+        )
+
+
 def insert_raw_transactions(
     conn: sqlite3.Connection,
     rows: list[dict[str, Any]],

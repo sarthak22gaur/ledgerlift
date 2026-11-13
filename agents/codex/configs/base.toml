@@ -1,4 +1,2 @@
 # Codex configuration for ledgerlift
 # Fragments under codex/configs/ are concatenated into .codex/config.toml on sync.
-
-model = "claude-sonnet-4-6"

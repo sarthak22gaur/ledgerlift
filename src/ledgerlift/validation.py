@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from ledgerlift.models import Direction, ParsedStatement
@@ -22,7 +23,8 @@ def validate_parsed_statement(parsed: ParsedStatement) -> list[str]:
 
     # Check transactions exist
     if not parsed.raw_transactions:
-        warnings.append("No transactions extracted")
+        if not parsed.empty_statement:
+            warnings.append("No transactions extracted")
         return warnings
 
     # Check all transactions have required fields
@@ -63,6 +65,33 @@ def validate_parsed_statement(parsed: ParsedStatement) -> list[str]:
             )
 
     return warnings
+
+
+@dataclass
+class ValidationResult:
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+
+def check_parsed_statement(parsed: ParsedStatement) -> ValidationResult:
+    """Separate incomplete extraction from advisory metadata warnings."""
+    from ledgerlift.reconciliation import reconcile_statement
+
+    errors = list(parsed.extraction_errors)
+    warnings = validate_parsed_statement(parsed)
+    strict_parser = parsed.parser_name in {
+        "chase_checking_pdf", "wealthfront_cash_pdf", "wealthfront_greendot_pdf",
+    }
+    if not parsed.raw_transactions and strict_parser and not parsed.empty_statement:
+        errors.append("No transactions extracted without evidence of an empty statement")
+    for i, txn in enumerate(parsed.raw_transactions):
+        if not txn.date_str or not txn.description or not txn.amount_str:
+            errors.append(f"Transaction {i}: missing required fields")
+    recon = reconcile_statement(parsed)
+    if recon is not None and not recon.is_reconciled:
+        errors.append(f"Balance reconciliation failed: discrepancy={recon.discrepancy}")
+    warnings = [w for w in warnings if not w.startswith("Balance reconciliation failed:")]
+    return ValidationResult(errors=list(dict.fromkeys(errors)), warnings=warnings)
 
 
 def _sum_by_direction(parsed: ParsedStatement, direction: Direction) -> Decimal | None:

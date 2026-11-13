@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 import sqlite3
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -20,7 +21,7 @@ from ledgerlift.models import CanonicalTransaction, ParseStatus
 from ledgerlift.normalize import normalize_statement
 from ledgerlift.parsers import get_parser
 from ledgerlift.parsers.base import ParseError
-from ledgerlift.validation import validate_parsed_statement
+from ledgerlift.validation import check_parsed_statement
 from ledgerlift import store as _store
 
 logger = logging.getLogger(__name__)
@@ -207,12 +208,55 @@ def scan(
     return counts
 
 
+def _needs_parsing(conn: sqlite3.Connection, file_hash: str, parser, force: bool) -> bool:
+    existing = _store.get_source_file(conn, file_hash)
+    if force or existing is None or existing["parse_status"] != ParseStatus.PARSED.value:
+        return True
+    statement = conn.execute(
+        "SELECT parser_name, parser_version FROM statements WHERE source_file_hash = ?",
+        (file_hash,),
+    ).fetchone()
+    return statement is None or (statement["parser_name"], statement["parser_version"]) != (parser.name, parser.version)
+
+
+def _preserve_transaction_ids(conn: sqlite3.Connection, file_hash: str, transactions: list[CanonicalTransaction]) -> None:
+    """Keep identities for unambiguously unchanged rows when extraction adds rows."""
+    old = _store.list_transactions(conn, source_file_hash=file_hash)
+    old_groups = defaultdict(list)
+    new_groups = defaultdict(list)
+
+    def key(account, day, direction, amount, description):
+        return (account, day, direction, Decimal(str(amount)).quantize(Decimal("0.01")),
+                " ".join(description.casefold().split()))
+
+    for row in old:
+        old_groups[key(row["account_name"], row["transaction_date"], row["direction"], row["amount"], row["description_normalized"])].append(row)
+    for txn in transactions:
+        new_groups[key(txn.account_name, txn.transaction_date.isoformat(), txn.direction.value, txn.amount, txn.description_normalized)].append(txn)
+    preserved = set()
+    for identity, old_rows in old_groups.items():
+        new_rows = new_groups.get(identity, [])
+        if len(old_rows) == len(new_rows):
+            for old_row, txn in zip(old_rows, new_rows):
+                txn.transaction_id = old_row["transaction_id"]
+                preserved.add(txn.transaction_id)
+    old_ids = {row["transaction_id"] for row in old}
+    overridden = set()
+    for table in ("merchant_overrides", "category_overrides"):
+        overridden.update(row[0] for row in conn.execute(f"SELECT transaction_id FROM {table} WHERE transaction_id IS NOT NULL"))
+    if (old_ids & overridden) - preserved:
+        raise ParseError("Cannot safely preserve a transaction-specific override; review the changed statement before retrying")
+    if len({t.transaction_id for t in transactions}) != len(transactions):
+        raise ParseError("Replacement would produce duplicate transaction identities")
+
+
 def parse_file(
     conn: sqlite3.Connection,
     file_path: Path,
     institution: str,
     account: str,
     force: bool = False,
+    warning_messages: list[str] | None = None,
 ) -> bool:
     """Parse a single source file. Returns True if parsing succeeded."""
     file_hash = hash_file(file_path)
@@ -220,17 +264,15 @@ def parse_file(
 
     _store.upsert_source_file(conn, file_hash, relative_path, institution, account)
 
-    existing = _store.get_source_file(conn, file_hash)
-    if not force and existing and existing["parse_status"] == ParseStatus.PARSED.value:
-        logger.info("Skipping already parsed file: %s", file_path.name)
-        return True
-
     try:
         parser = get_parser(institution, account)
     except ValueError as e:
         logger.error("No parser available: %s", e)
         _store.mark_source_file_failed(conn, file_hash, str(e), _now_iso())
         return False
+    if not _needs_parsing(conn, file_hash, parser, force):
+        logger.info("Skipping already parsed file: %s", file_path.name)
+        return True
 
     try:
         parsed = parser.parse(file_path, file_hash)
@@ -243,12 +285,25 @@ def parse_file(
         _store.mark_source_file_failed(conn, file_hash, f"Unexpected: {e}", _now_iso())
         return False
 
-    validation_warnings = validate_parsed_statement(parsed)
-    parsed.warnings.extend(validation_warnings)
-    for w in validation_warnings:
-        logger.warning("Validation: %s — %s", file_path.name, w)
-
-    normalized = normalize_statement(parsed)
+    validation = check_parsed_statement(parsed)
+    for warning in list(dict.fromkeys(parsed.warnings + validation.warnings)):
+        logger.warning("Validation: %s — %s", file_path.name, warning)
+        if warning_messages is not None:
+            warning_messages.append(warning)
+    if validation.errors:
+        error = "; ".join(validation.errors)
+        logger.error("Incomplete parse: %s — %s", file_path.name, error)
+        _store.mark_source_file_failed(conn, file_hash, error, _now_iso())
+        return False
+    try:
+        normalized = normalize_statement(parsed)
+        if len(normalized) != len(parsed.raw_transactions):
+            raise ParseError("Normalization dropped extracted transactions")
+        _preserve_transaction_ids(conn, file_hash, normalized)
+    except Exception as e:
+        _store.mark_source_file_failed(conn, file_hash, str(e), _now_iso())
+        logger.error("Invalid replacement for %s: %s", file_path.name, e)
+        return False
 
     import hashlib
     stmt_id = hashlib.sha256(f"{file_hash}:{institution}:{account}".encode()).hexdigest()[:16]
@@ -269,7 +324,6 @@ def parse_file(
         "parser_name": parsed.parser_name,
         "parser_version": parsed.parser_version,
     }
-    _store.upsert_statement(conn, stmt_row)
 
     from ledgerlift.utils.money import parse_amount as _parse_amount  # noqa: PLC0415
     raw_rows = []
@@ -287,13 +341,13 @@ def parse_file(
             "category_raw": rt.section,
             "reference_number": rt.reference_number,
         })
-    _store.insert_raw_transactions(conn, raw_rows)
-
-    _store.delete_transactions_for_file(conn, file_hash)
     txn_rows = [_txn_to_row(txn, file_hash, stmt_id) for txn in normalized]
-    _store.upsert_transactions(conn, txn_rows)
-
-    _store.mark_source_file_parsed(conn, file_hash, _now_iso())
+    try:
+        _store.replace_parsed_statement(conn, stmt_row, raw_rows, txn_rows, _now_iso())
+    except Exception as e:
+        logger.error("Could not replace parsed statement %s: %s", file_path.name, e)
+        _store.mark_source_file_failed(conn, file_hash, f"Storage error: {e}", _now_iso())
+        return False
 
     logger.info(
         "Successfully parsed %s: %d transactions", file_path.name, len(normalized)
@@ -311,17 +365,21 @@ def parse_all(
     """Parse all source files that need parsing."""
     ensure_dirs()
     files = discover_source_files(institution, account, year)
-    counts = {"parsed": 0, "skipped": 0, "failed": 0, "total": len(files)}
+    counts = {"parsed": 0, "skipped": 0, "failed": 0, "warnings": 0, "total": len(files)}
 
     for file_path, inst, acct, yr in files:
         file_hash = hash_file(file_path)
-        existing = _store.get_source_file(conn, file_hash)
-
-        if not force and existing and existing["parse_status"] == ParseStatus.PARSED.value:
+        try:
+            parser = get_parser(inst, acct)
+        except ValueError:
+            parser = None
+        if parser is not None and not _needs_parsing(conn, file_hash, parser, force):
             counts["skipped"] += 1
             continue
 
-        success = parse_file(conn, file_path, inst, acct, force=force)
+        warnings: list[str] = []
+        success = parse_file(conn, file_path, inst, acct, force=force, warning_messages=warnings)
+        counts["warnings"] += len(warnings)
         if success:
             counts["parsed"] += 1
         else:

@@ -211,3 +211,70 @@ class TestChaseParserEdgeCases:
         assert len(result.raw_transactions) == 2
         assert result.raw_transactions[0].direction == Direction.CREDIT
         assert result.raw_transactions[1].direction == Direction.DEBIT
+
+
+@pytest.mark.parametrize("space", ["", " ", "  "])
+def test_transaction_markers_allow_optional_whitespace(space: str) -> None:
+    text = (
+        "January 1, 2026 through January 31, 2026\n"
+        "Beginning Balance $100.00\nEnding Balance $125.00\n"
+        f"*start*transaction{space}detail\n"
+        "01/10 EMPLOYER 50.00 150.00\n"
+        "01/15 STORE -25.00 125.00\n"
+        f"*end*transaction{space}detail\n"
+        "01/20 DISCLOSURE EXAMPLE 999.00 999.00"
+    )
+    with patch("ledgerlift.parsers.chase_checking_pdf.extract_text_pages", return_value=[text]):
+        result = ChaseCheckingPDFParser().parse(Path("/fake/statement.pdf"), "hash")
+    assert len(result.raw_transactions) == 2
+    assert result.extraction_errors == []
+    from ledgerlift.reconciliation import reconcile_statement
+    assert reconcile_statement(result).is_reconciled
+
+
+def test_compact_corrupted_end_marker_recovers_date() -> None:
+    lines = ChaseCheckingPDFParser()._extract_transaction_lines(
+        "*start*transactiondetail\n"
+        "*end*transac1tiondetail1/17 STORE -10.00 90.00\n"
+        "11/18 OUTSIDE -20.00 70.00"
+    )
+    assert lines == ["11/17 STORE -10.00 90.00"]
+
+
+def test_unrecognized_transaction_rows_are_not_silently_dropped() -> None:
+    text = (
+        "January 1, 2026 through January 31, 2026\n"
+        "Beginning Balance $100.00\nEnding Balance $100.00\n"
+        "*start*transactiondetail\n"
+        "01/10 UNKNOWN 10.00 CR\n"
+        "01/11 UNKNOWN 10.00 DR\n"
+        "*end*transactiondetail"
+    )
+    with patch("ledgerlift.parsers.chase_checking_pdf.extract_text_pages", return_value=[text]):
+        result = ChaseCheckingPDFParser().parse(Path("/fake/statement.pdf"), "hash")
+    assert len([e for e in result.extraction_errors if "Unrecognized" in e]) == 2
+    assert not result.empty_statement
+    assert all("UNKNOWN" not in e for e in result.extraction_errors)
+
+
+def test_unknown_chase_layout_reports_missing_section() -> None:
+    with patch("ledgerlift.parsers.chase_checking_pdf.extract_text_pages", return_value=["Some header"]):
+        result = ChaseCheckingPDFParser().parse(Path("/fake/statement.pdf"), "hash")
+    assert "Transaction detail section not detected" in result.extraction_errors
+    assert "Statement period not detected" in result.extraction_errors
+
+
+def test_chase_explicit_empty_statement_requires_unchanged_balance() -> None:
+    text = (
+        "January 1, 2026 through January 31, 2026\n"
+        "Beginning Balance $100.00\nEnding Balance $100.00\n"
+        "*start*transactiondetail\nNo Transactions\n*end*transactiondetail"
+    )
+    with patch("ledgerlift.parsers.chase_checking_pdf.extract_text_pages", return_value=[text]):
+        result = ChaseCheckingPDFParser().parse(Path("/fake/statement.pdf"), "hash")
+    assert result.empty_statement
+    assert not result.extraction_errors
+    with patch("ledgerlift.parsers.chase_checking_pdf.extract_text_pages", return_value=[text.replace("Ending Balance $100.00", "Ending Balance $90.00")]):
+        result = ChaseCheckingPDFParser().parse(Path("/fake/statement.pdf"), "hash")
+    assert not result.empty_statement
+    assert result.extraction_errors

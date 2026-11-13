@@ -1,4 +1,7 @@
 import { query } from "./db";
+import { detectCategorizationReview } from "@/lib/categorization-review";
+import { listCategoryOverrides, listMerchantOverrides } from "@/server/rules/repository";
+import { comparisonDayForMonth, currentMonth, monthRange, monthlyCategories, nonDateFilters, parseMonth, shiftMonth } from "@/lib/monthly";
 import {
   overviewMetricsQuery,
   cashflowSeriesQuery,
@@ -15,6 +18,17 @@ import {
   transferCandidatesQuery,
   transferPairsQuery,
   accountSummaryQuery,
+  calendarYearSeriesQuery,
+  calendarMonthSeriesQuery,
+  calendarYearHeatmapQuery,
+  calendarDayHeatmapQuery,
+  dayOfWeekSeriesQuery,
+  seasonSeriesQuery,
+  monthOfYearSeriesQuery,
+  monthlyImportedScopeQuery,
+  monthlySpendingQuery,
+  categorizationReviewCandidatesQuery,
+  categorizationReviewBaselineQuery,
 } from "./queries";
 import type {
   FilterParams,
@@ -25,7 +39,69 @@ import type {
   Transaction,
   TransferPair,
   PaginatedResult,
+  CalendarYearPoint,
+  CalendarMonthPoint,
+  CalendarDayPoint,
+  DayOfWeekPoint,
+  SeasonPoint,
+  MonthOfYearPoint,
+  MonthlyOverview,
+  MonthlySpendingRow,
+  CategorizationReviewRow,
+  CategorizationBaselineRow,
 } from "./types";
+
+export async function getCategorizationReview(
+  filters: FilterParams, page = 1, pageSize = 50,
+): Promise<PaginatedResult<CategorizationReviewRow>> {
+  const candidates = categorizationReviewCandidatesQuery(filters);
+  const baselines = categorizationReviewBaselineQuery(filters);
+  const [rows, baselineRows, categoryOverrides, merchantOverrides] = await Promise.all([
+    query<Transaction>(candidates.sql, candidates.params),
+    query<CategorizationBaselineRow>(baselines.sql, baselines.params),
+    listCategoryOverrides(), listMerchantOverrides(),
+  ]);
+  return detectCategorizationReview(rows, baselineRows, [...categoryOverrides, ...merchantOverrides], page, pageSize);
+}
+
+export async function getMonthlyOverview(
+  requestedMonth: string | null,
+  filters: FilterParams,
+  now = new Date()
+): Promise<MonthlyOverview> {
+  const scope = nonDateFilters(filters);
+  const latestQuery = monthlyImportedScopeQuery(scope);
+  const latestRows = await query<{ latestDate: string | null }>(latestQuery.sql, latestQuery.params);
+  const latestImportedDate = latestRows[0]?.latestDate ?? null;
+  const month = parseMonth(requestedMonth) ?? latestImportedDate?.slice(0, 7) ?? currentMonth(now);
+  const range = monthRange(month);
+  const selectedFilters = { ...scope, ...range };
+  const actualQuery = monthlySpendingQuery(selectedFilters);
+  const actual = await query<MonthlySpendingRow>(actualQuery.sql, actualQuery.params);
+  const selectedLatestDate = actual[0]?.latestDate ?? null;
+  const comparisonDay = comparisonDayForMonth(month, latestImportedDate, selectedLatestDate, now);
+  const comparisonRange = monthRange(month, comparisonDay);
+  const fetchWindow = async (windowMonth: string) => {
+    const built = monthlySpendingQuery({ ...scope, ...monthRange(windowMonth, comparisonDay) });
+    return query<MonthlySpendingRow>(built.sql, built.params);
+  };
+  const [comparison, previous, metrics, merchants] = await Promise.all([
+    comparisonRange.endDate === range.endDate ? Promise.resolve(actual) : fetchWindow(month),
+    Promise.all([1, 2, 3].map((offset) => fetchWindow(shiftMonth(month, -offset)))),
+    getOverviewMetrics(selectedFilters),
+    getTopMerchants(selectedFilters),
+  ]);
+  return {
+    month, ...range, filters: selectedFilters, latestImportedDate, selectedLatestDate,
+    transactionCount: actual[0]?.importedCount ?? 0,
+    comparisonDay,
+    comparisonEndDate: comparisonRange.endDate,
+    categorySpending: actual.reduce((sum, row) => sum + row.amount, 0),
+    categories: monthlyCategories(actual, comparison, previous),
+    merchants,
+    metrics,
+  };
+}
 
 export async function getOverviewMetrics(
   filters: FilterParams
@@ -191,6 +267,66 @@ export async function getAccountSummary(
 > {
   const { sql, params } = accountSummaryQuery(filters);
   return query(sql, params);
+}
+
+export async function getCalendarYearSeries(
+  filters: FilterParams,
+  metric: "expenses" | "net"
+): Promise<CalendarYearPoint[]> {
+  const { sql, params } = calendarYearSeriesQuery(filters, metric);
+  return query<CalendarYearPoint>(sql, params);
+}
+
+export async function getCalendarMonthSeries(
+  filters: FilterParams,
+  metric: "expenses" | "net",
+  year: string
+): Promise<CalendarMonthPoint[]> {
+  const { sql, params } = calendarMonthSeriesQuery(filters, metric, year);
+  return query<CalendarMonthPoint>(sql, params);
+}
+
+export async function getCalendarYearHeatmap(
+  filters: FilterParams,
+  metric: "expenses" | "net",
+  year: string
+): Promise<CalendarDayPoint[]> {
+  const { sql, params } = calendarYearHeatmapQuery(filters, metric, year);
+  return query<CalendarDayPoint>(sql, params);
+}
+
+export async function getCalendarDayHeatmap(
+  filters: FilterParams,
+  metric: "expenses" | "net",
+  year: string,
+  month: string
+): Promise<CalendarDayPoint[]> {
+  const { sql, params } = calendarDayHeatmapQuery(filters, metric, year, month);
+  return query<CalendarDayPoint>(sql, params);
+}
+
+export async function getDayOfWeekSeries(
+  filters: FilterParams,
+  metric: "expenses" | "net"
+): Promise<DayOfWeekPoint[]> {
+  const { sql, params } = dayOfWeekSeriesQuery(filters, metric);
+  return query<DayOfWeekPoint>(sql, params);
+}
+
+export async function getSeasonSeries(
+  filters: FilterParams,
+  metric: "expenses" | "net"
+): Promise<SeasonPoint[]> {
+  const { sql, params } = seasonSeriesQuery(filters, metric);
+  return query<SeasonPoint>(sql, params);
+}
+
+export async function getMonthOfYearSeries(
+  filters: FilterParams,
+  metric: "expenses" | "net"
+): Promise<MonthOfYearPoint[]> {
+  const { sql, params } = monthOfYearSeriesQuery(filters, metric);
+  return query<MonthOfYearPoint>(sql, params);
 }
 
 export async function getDateRange(): Promise<{

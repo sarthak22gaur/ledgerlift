@@ -10,6 +10,13 @@ import pytest
 from ledgerlift.store import get_connection, init_db, reset_db
 
 
+@pytest.fixture(autouse=True)
+def isolated_ledger_environment(monkeypatch):
+    """Keep tests independent of the owner's configured database and vault."""
+    monkeypatch.delenv("LEDGERLIFT_VAULT", raising=False)
+    monkeypatch.delenv("LEDGERLIFT_DB", raising=False)
+
+
 @pytest.fixture
 def tmp_db(tmp_path: Path):
     """Initialise a temporary SQLite database and return (db_path, connection)."""

@@ -86,6 +86,39 @@ export type CategoryBreakdown = {
   percentage: number;
 };
 
+export type MonthlySpendingRow = {
+  category: string | null;
+  amount: number;
+  count: number;
+  importedCount: number;
+  latestDate: string | null;
+};
+
+export type MonthlyCategory = CategoryBreakdown & {
+  comparisonAmount: number;
+  previousAmount: number | null;
+  previousDifference: number | null;
+  previousPercent: number | null;
+  threeMonthAverage: number | null;
+  isNew: boolean;
+};
+
+export type MonthlyOverview = {
+  month: string;
+  startDate: string;
+  endDate: string;
+  filters: FilterParams;
+  latestImportedDate: string | null;
+  selectedLatestDate: string | null;
+  transactionCount: number;
+  comparisonDay: number | null;
+  comparisonEndDate: string;
+  categorySpending: number;
+  categories: MonthlyCategory[];
+  merchants: MerchantSummary[];
+  metrics: OverviewMetrics;
+};
+
 export type MerchantSummary = {
   merchant: string;
   amount: number;
@@ -129,3 +162,44 @@ export type PaginatedResult<T> = {
   page: number;
   pageSize: number;
 };
+
+export type CategorizationReviewReason =
+  | { kind: "mixed-retailer" | "weak-mapping"; label: string }
+  | {
+      kind: "unusual-amount";
+      label: string;
+      baseline: "merchant" | "category";
+      ratio: number;
+      median: number;
+      sampleCount: number;
+      currency: string;
+    };
+
+export type CategorizationReviewRow = Transaction & {
+  reviewReasons: CategorizationReviewReason[];
+};
+
+export type CategorizationBaselineRow = Pick<Transaction,
+  "transaction_id" | "amount" | "currency" | "direction" | "merchant_normalized" | "category_normalized"
+>;
+
+export type CalendarYearPoint = { year: string; value: number };
+
+export type CalendarMonthPoint = { month: string; value: number };
+
+export type CalendarDayPoint = { date: string; value: number; txn_count: number };
+
+export type DayOfWeekPoint = {
+  dow: string;
+  value: number;
+  txn_count: number;
+  avg_value: number;
+};
+
+export type SeasonPoint = {
+  season: "Winter" | "Spring" | "Summer" | "Autumn";
+  value: number;
+  txn_count: number;
+};
+
+export type MonthOfYearPoint = { month: string; value: number; txn_count: number };

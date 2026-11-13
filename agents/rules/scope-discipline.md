@@ -1,0 +1,31 @@
+# Scope Discipline and the Defect Bar (Hard Rule)
+
+## Smallest sufficient change
+
+Implement the smallest change that fixes the stated problem. An approved plan authorizes its stated work and nothing more. Don't add frameworks, abstractions, retries, recovery machinery, compatibility layers, or new user-facing behavior the problem doesn't demonstrably need. Leave unrelated code as you found it.
+
+When you find work outside the approved scope, classify it:
+- **required** — the stated fix doesn't work without it. Proceed.
+- **adjacent defect** — real and reproducible, but outside scope.
+- **hypothetical** — plausible, not demonstrated.
+
+Keep going on the approved work. Report relevant adjacent defects with evidence and whether they block the current task.
+
+## What may block
+
+A finding blocks (in a review, a grill, or a fix loop) only when it has all three:
+1. a trigger the system actually receives,
+2. an observable consequence, and
+3. `path:line` evidence plus a failing test or a precise reproduction.
+
+Anything short of that is a hypothetical: record it as a scope candidate and keep it out of every fix loop. Without a declared threat model, don't invent an adversary. Hardening against hostile inputs nobody named is a scope candidate, never a blocker. A finding framed as security gets more scrutiny, not automatic promotion: "a malicious X could" and "defence in depth" aren't triggers.
+
+Severity from a reviewer, a grill, or a peer CLI is only a suggestion. Whoever runs the loop re-applies this bar, and "another engine called it a blocker" isn't evidence.
+
+## Approved plans are frozen
+
+During implementation, don't reopen an approved decision, restate a requirement more strictly and then build to the stricter version, or propose something the plan lists as a non-goal. Where a plan sentence is ambiguous, take the smaller reading and say which one you took. A fix round should leave the diff the same size or smaller. If it keeps growing, the round is asking for the wrong thing. Preserve reviewed, verified work when escalating. Commit or push only with explicit user authorization.
+
+## Tests earn their place
+
+Write tests for logic that could realistically break: non-trivial business rules, parsers, state machines, boundaries between components. Don't write tests for framework behavior, trivial wiring, removed functionality, or hypothetical recovery paths. Missing coverage alone never blocks. When you remove a feature, remove its tests and any orphaned fixtures with it.
