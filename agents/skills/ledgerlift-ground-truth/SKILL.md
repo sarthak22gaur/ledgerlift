@@ -1,46 +1,37 @@
 ---
 name: ledgerlift-ground-truth
-description: The single source of truth for ledgerlift architecture, repo layout, primary stack, and project-wide conventions. Use when an agent needs orientation before any non-trivial work.
+description: LedgerLift architecture, entry points, shared SQLite schema, and verification commands. Load before non-trivial work.
 ---
 
 # LedgerLift Ground Truth
 
-Local-first ETL pipeline that parses personal financial statements (PDFs/CSVs) into a canonical transaction ledger, then enriches, reconciles, and exports them. A Next.js dashboard visualizes the result from the same database. Single-repo, single-user, runs entirely on the owner's machine. SQLite is the single source of truth — no DuckDB warehouse, no Postgres.
+LedgerLift turns personal PDF and CSV statements into a canonical ledger. The Python pipeline parses, enriches, reconciles, and exports it. The Next.js dashboard reads the same ledger and edits rules.
 
-## Layout
+## Entry points
 
-- `src/ledgerlift/` — Python pipeline (click CLI + pydantic v2 models)
-  - `cli.py` — command surface; `pipeline.py` — orchestration (scan → parse → enrich → transfers → export)
-  - `parsers/` — per-institution statement parsers (chase, amex, capitalone, sofi, wealthfront, deserve)
-  - `enrich/` — RuleEngine, text cleaning, fuzzy matching, transfer pairing
-  - `normalize.py`, `validation.py`, `reconciliation.py`, `exporters.py` — raw→canonical, checks, balance recon, CSV/JSON out
-  - `store.py` + `schema.sql` — SQLite store (connection, schema init/migration, vault import/export) and shared DDL; `intake.py`, `coverage.py`, `hashing.py` — statement intake, coverage report, dedup hashing
-- `apps/dashboard/` — Next.js 16 dashboard (React 19, ECharts, Tailwind 4, shadcn/ui)
-- `data/` — runtime artifacts: `raw/ statements/ exports/ state/ logs/ rules/`
-- `tests/` — pytest suite
+- `src/ledgerlift/cli.py` is the Click CLI. `pipeline.py` orchestrates scan, parse, enrichment, transfers, and export. `intake.py` handles statement intake and `coverage.py` reports statement coverage.
+- `src/ledgerlift/parsers/` contains institution parsers. `models.py`, `normalize.py`, `validation.py`, and `reconciliation.py` define and check parsed and canonical records. Use `pipeline-patterns` for pipeline changes.
+- `src/ledgerlift/store.py` handles SQLite and vault YAML import/export. `src/ledgerlift/schema.sql` is the shared DDL. Version 3 is tracked in Python and expected by the dashboard.
+- `apps/dashboard/` uses Next.js 16, React 19, TypeScript, ECharts, shadcn/ui, and Tailwind 4. Routes live in `src/app/`. SQL flows through `src/server/data/queries.ts` → `repository.ts` → `db.ts`. Use `dashboard-patterns` for dashboard changes.
+- `tests/` holds the pytest suite. `agents/` holds the agent sources. `data/` holds runtime data and base rule seeds.
 
-## Primary Stack
+## Storage contracts
 
-- **Python 3.12+**: pipeline core; pydantic v2 models, click CLI, pdfplumber, rapidfuzz
-- **TypeScript / Next.js 16**: dashboard (app router, server components by default), ECharts, zod
-- **Data**: one SQLite DB shared by pipeline (`sqlite3`) and dashboard (`@libsql/client`). No DuckDB, no Postgres. Schema lives in `src/ledgerlift/schema.sql` (version 3). `LEDGERLIFT_VAULT` (vault dir holding DB + YAMLs) is the canonical config; `LEDGERLIFT_DB` overrides the path and may be a Turso `libsql://` URL.
+- Python uses `sqlite3`. Its DB path order is explicit argument, `LEDGERLIFT_DB`, `LEDGERLIFT_VAULT/ledgerlift.sqlite`, then `data/state/ledgerlift.sqlite`.
+- The dashboard uses `@libsql/client`. `db-path.ts` resolves `LEDGERLIFT_DB`, then the vault, then the default file. Only the dashboard supports a remote libSQL URL, with auth via `LIBSQL_AUTH_TOKEN`.
+- The vault holds the DB and rule YAMLs. SQLite owns live rules and account mappings. Rule reads honor user rows over base rows. Check import and export behavior in `store.py` before changing this contract.
+- For schema changes, update the shared DDL, check Python store and dashboard bootstrap/mismatch handling, and keep version expectations and affected row types aligned.
 
-## Entry Points
+## Commands
 
-- CLI group: `src/ledgerlift/cli.py:44` (`@click.group`); installed as `ledgerlift` (`pyproject.toml` `[project.scripts]`)
-- Pipeline orchestration: `src/ledgerlift/pipeline.py`; DB path resolution: `src/ledgerlift/store.py:resolve_db_path`
-- Dashboard routes: `apps/dashboard/src/app/` (`/`, `/transactions`, `/categories`, `/merchants`, `/accounts`, `/rules`, `/review/*`)
-- Dashboard data layer: `apps/dashboard/src/server/data/queries.ts` (SQL builders) → `repository.ts` (access) → `db.ts` (libSQL client)
+| Area | From | Command |
+|---|---|---|
+| Pipeline setup | repo root | `python -m pip install -e ".[dev]"` using Python 3.12+ |
+| Pipeline tests | repo root | `python -m pytest tests/ -q` or `python -m pytest tests/<file>.py::<test> -q` |
+| Dashboard setup | `apps/dashboard/` | `npm ci` |
+| Dashboard tests | `apps/dashboard/` | `npm test` or `npm test -- <file>` |
+| Dashboard type-check | `apps/dashboard/` | `npx tsc --noEmit` |
+| Dashboard lint, build, dev | `apps/dashboard/` | `npm run lint`, `npm run build`, `npm run dev` (port 4005) |
+| Agent sync | repo root | `bash agents/scripts/sync_agents.sh` |
 
-## Conventions
-
-- Base branch `main`. No AI attribution in commits/PRs.
-- Python: pydantic v2, click; tests via `pytest tests/ -q` (`pythonpath=src`).
-- Dashboard: TypeScript strict, server components by default; tests via `vitest`, dev on port 4005.
-- Pipeline and dashboard share one schema (`schema.sql`); change DDL there and bump the version in both `store.py` and `db.ts`.
-- Enrichment runs in a fixed order (overrides → merchant → category → fuzzy → heuristic → transfer/payment). See `pipeline-patterns`.
-- Dashboard SQL lives in `queries.ts`; filters come from URL search params. See `dashboard-patterns`.
-
-## What This Skill Is Not
-
-Live code behaviour, current bug list, or in-flight work. For those, read the code, `CLAUDE.md`, or the relevant plan. For pipeline internals see `pipeline-patterns`; for dashboard internals see `dashboard-patterns`.
+Use synthetic statement fixtures and temporary SQLite databases for tests. Run live ETL commands only when the task calls for changes to the user's ledger. `ledgerlift e2e --force` rebuilds derived state.

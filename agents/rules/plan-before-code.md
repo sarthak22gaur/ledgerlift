@@ -1,0 +1,10 @@
+# Plan Before Code (Hard Rule)
+
+Before any non-trivial implementation:
+
+1. Produce or read an approved plan. Trivial means a single-file fix, a typo, formatting, or an isolated bug with an obvious cause. Everything else needs a plan: multi-file changes, cross-module or cross-repo work, new abstractions or schemas, and anything touching an external API surface.
+2. The architect agent (or the user) writes the plan, and it lives in `workspace/plans/` or in the ticket/PR body.
+3. The user approves the plan before implementation starts.
+4. Engineers execute the plan; they don't author it.
+
+An approved plan authorizes the steps it describes. Use reversible assumptions for routine implementation choices. Ask when a missing decision would change scope, behavior, or risk materially.
