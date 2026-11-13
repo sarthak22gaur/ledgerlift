@@ -32,7 +32,6 @@ from ledgerlift.models import (
     StatementMetadata,
 )
 from ledgerlift.parsers.base import BaseParser, ParseError
-from ledgerlift.utils.dates import infer_year_from_path
 from ledgerlift.utils.money import parse_amount
 from ledgerlift.utils.pdf import extract_text_pages
 from ledgerlift.utils.text import clean_raw_text, normalize_whitespace
@@ -40,7 +39,7 @@ from ledgerlift.utils.text import clean_raw_text, normalize_whitespace
 logger = logging.getLogger(__name__)
 
 PARSER_NAME = "wealthfront_cash_pdf"
-PARSER_VERSION = "0.1.0"
+PARSER_VERSION = "0.2.0"
 
 MONTH_NAMES = {
     "january": 1, "february": 2, "march": 3, "april": 4,
@@ -64,6 +63,7 @@ TRANSACTION_RE = re.compile(
     r"^(\d{1,2}/\d{1,2}/\d{4})\s+"  # date
     r"(.+?)\s+"                       # description/method
     r"(?:Received|Disbursed)\s+"      # status
+    r"(?:(.*?)\s+)?"                 # optional initiator column
     r"(-?\$[\d,]+\.\d{2})$"          # amount
 )
 
@@ -79,6 +79,7 @@ DEPOSITS_RE = re.compile(r"Deposits/Credits", re.IGNORECASE)
 WITHDRAWALS_RE = re.compile(r"Withdrawals/Debits", re.IGNORECASE)
 INTEREST_SECTION_RE = re.compile(r"^INTEREST", re.IGNORECASE)
 PROGRAM_BANK_RE = re.compile(r"Transfer between Wealthfront and Program", re.IGNORECASE)
+TRANSACTION_CANDIDATE_RE = re.compile(r"^\d{1,2}/\d{1,2}/\d{4}\s+.*\d[,.]\d{2}")
 
 
 def _parse_period(text: str) -> tuple[date | None, date | None]:
@@ -111,6 +112,7 @@ class WealthfrontCashPDFParser(BaseParser):
     def parse(self, pdf_path: Path, file_hash: str) -> ParsedStatement:
         logger.info("Parsing Wealthfront Cash statement: %s", pdf_path.name)
         warnings: list[str] = []
+        extraction_errors: list[str] = []
 
         try:
             pages = extract_text_pages(pdf_path)
@@ -126,11 +128,29 @@ class WealthfrontCashPDFParser(BaseParser):
         metadata = self._extract_metadata(full_text, pdf_path)
         if metadata.statement_start_date is None:
             warnings.append("Could not detect statement period")
+            extraction_errors.append("Statement period not detected")
 
-        raw_transactions = self._parse_transactions(full_text, warnings)
+        empty_sections: set[str] = set()
+        raw_transactions = self._parse_transactions(full_text, warnings, extraction_errors, empty_sections)
+        empty_statement = (
+            {"deposits", "withdrawals"}.issubset(empty_sections)
+            and not raw_transactions and not extraction_errors
+            and metadata.beginning_balance is not None
+            and metadata.beginning_balance == metadata.ending_balance
+        )
 
-        if not raw_transactions:
+        if not raw_transactions and not empty_statement:
             warnings.append("No transactions extracted from statement")
+            extraction_errors.append("No transactions extracted without evidence of an empty statement")
+        elif raw_transactions and empty_sections:
+            # Empty notices in a different activity section are legitimate.
+            for txn in raw_transactions:
+                section = "interest" if txn.section == "interest" else (
+                    "deposits" if txn.direction == Direction.CREDIT else "withdrawals"
+                )
+                if section in empty_sections:
+                    extraction_errors.append(f"Empty-statement notice contradicts {section} rows")
+                    break
 
         logger.info("Extracted %d transactions from %s", len(raw_transactions), pdf_path.name)
 
@@ -141,6 +161,8 @@ class WealthfrontCashPDFParser(BaseParser):
             raw_transactions=raw_transactions,
             extracted_text=full_text,
             warnings=warnings,
+            extraction_errors=extraction_errors,
+            empty_statement=empty_statement,
             parser_name=self.name,
             parser_version=self.version,
         )
@@ -174,13 +196,18 @@ class WealthfrontCashPDFParser(BaseParser):
             ending_balance=ending_balance,
         )
 
-    def _parse_transactions(self, text: str, warnings: list[str]) -> list[RawTransaction]:
+    def _parse_transactions(
+        self, text: str, warnings: list[str], errors: list[str] | None = None,
+        empty_sections: set[str] | None = None,
+    ) -> list[RawTransaction]:
         lines = text.split("\n")
         transactions: list[RawTransaction] = []
         current_direction: Direction | None = None
         in_program_bank = False
+        current_section: str | None = None
+        seen_sections: set[str] = set()
 
-        for line in lines:
+        for line_number, line in enumerate(lines, 1):
             line = line.strip()
             if not line:
                 continue
@@ -188,29 +215,53 @@ class WealthfrontCashPDFParser(BaseParser):
             # Detect sections
             if DEPOSITS_RE.search(line):
                 current_direction = Direction.CREDIT
+                current_section = "deposits"
+                seen_sections.add(current_section)
                 in_program_bank = False
                 continue
             if WITHDRAWALS_RE.search(line):
                 current_direction = Direction.DEBIT
+                current_section = "withdrawals"
+                seen_sections.add(current_section)
                 in_program_bank = False
                 continue
             if INTEREST_SECTION_RE.match(line):
                 current_direction = Direction.CREDIT
+                current_section = "interest"
                 in_program_bank = False
                 continue
             if PROGRAM_BANK_RE.search(line):
                 in_program_bank = True
+                current_section = None
                 continue
 
-            if in_program_bank:
+            if line.startswith("Balance and Interest Rate Details") or line.startswith("Disclosures"):
+                current_section = None
+
+            if in_program_bank or current_section is None:
+                continue
+
+            if re.fullmatch(r"No (?:Transactions|Activity)\.?", line, re.IGNORECASE):
+                if empty_sections is not None:
+                    empty_sections.add(current_section)
+                continue
+
+            # The PDF can wrap the final word and its footnote below a table row.
+            if (transactions and re.fullmatch(r"Dot\d*", line)
+                    and transactions[-1].description.endswith("Green")):
+                transactions[-1].description += " Dot"
                 continue
 
             # Try transaction match
-            txn_match = TRANSACTION_RE.match(line)
+            txn_match = TRANSACTION_RE.match(line) if current_section != "interest" else None
             if txn_match:
                 date_str = txn_match.group(1)
                 description = normalize_whitespace(txn_match.group(2))
-                amount_raw = txn_match.group(3).replace("$", "").replace(",", "")
+                description = re.sub(r"\bGreen Dot\d+\b", "Green Dot", description)
+                initiator = normalize_whitespace(txn_match.group(3) or "")
+                if initiator and initiator != "--":
+                    description += f" - {initiator}"
+                amount_raw = txn_match.group(4).replace("$", "").replace(",", "")
 
                 parsed_amt = parse_amount(amount_raw)
                 if parsed_amt is not None:
@@ -228,7 +279,7 @@ class WealthfrontCashPDFParser(BaseParser):
                 continue
 
             # Try interest match
-            int_match = INTEREST_RE.match(line)
+            int_match = INTEREST_RE.match(line) if current_section == "interest" else None
             if int_match:
                 date_str = int_match.group(1)
                 period = int_match.group(2)
@@ -241,5 +292,14 @@ class WealthfrontCashPDFParser(BaseParser):
                     direction=Direction.CREDIT,
                     section="interest",
                 ))
+                continue
+
+            if TRANSACTION_CANDIDATE_RE.match(line) and errors is not None:
+                errors.append(f"Unrecognized transaction row in {current_section} at source line {line_number}")
+
+        if errors is not None:
+            for section in ("deposits", "withdrawals"):
+                if section not in seen_sections:
+                    errors.append(f"Expected {section} activity section not detected")
 
         return transactions

@@ -24,7 +24,6 @@ from ledgerlift.models import (
     StatementMetadata,
 )
 from ledgerlift.parsers.base import BaseParser, ParseError
-from ledgerlift.utils.dates import infer_year_from_path
 from ledgerlift.utils.money import parse_amount
 from ledgerlift.utils.pdf import extract_text_pages
 from ledgerlift.utils.text import clean_raw_text, normalize_whitespace
@@ -32,7 +31,7 @@ from ledgerlift.utils.text import clean_raw_text, normalize_whitespace
 logger = logging.getLogger(__name__)
 
 PARSER_NAME = "wealthfront_greendot_pdf"
-PARSER_VERSION = "0.1.0"
+PARSER_VERSION = "0.2.0"
 
 # Statement period: "Sep. 06, 2025 to Oct. 05, 2025"
 MONTH_ABBR = {
@@ -86,6 +85,7 @@ class WealthfrontGreenDotPDFParser(BaseParser):
     def parse(self, pdf_path: Path, file_hash: str) -> ParsedStatement:
         logger.info("Parsing Wealthfront Green Dot statement: %s", pdf_path.name)
         warnings: list[str] = []
+        extraction_errors: list[str] = []
 
         try:
             pages = extract_text_pages(pdf_path)
@@ -102,10 +102,18 @@ class WealthfrontGreenDotPDFParser(BaseParser):
         if metadata.statement_start_date is None:
             warnings.append("Could not detect statement period")
 
-        raw_transactions = self._parse_transactions(full_text, warnings)
+        empty_sections: set[str] = set()
+        raw_transactions = self._parse_transactions(full_text, warnings, extraction_errors, empty_sections)
+        empty_statement = (
+            "transactions" in empty_sections and not raw_transactions and not extraction_errors
+            and metadata.beginning_balance is not None
+            and metadata.beginning_balance == metadata.ending_balance
+        )
 
-        if not raw_transactions:
+        if not raw_transactions and not empty_statement:
             warnings.append("No transactions extracted from statement")
+        if raw_transactions and "transactions" in empty_sections:
+            extraction_errors.append("Empty-statement notice contradicts transaction rows")
 
         logger.info("Extracted %d transactions from %s", len(raw_transactions), pdf_path.name)
 
@@ -116,6 +124,8 @@ class WealthfrontGreenDotPDFParser(BaseParser):
             raw_transactions=raw_transactions,
             extracted_text=full_text,
             warnings=warnings,
+            extraction_errors=extraction_errors,
+            empty_statement=empty_statement,
             parser_name=self.name,
             parser_version=self.version,
         )
@@ -154,10 +164,14 @@ class WealthfrontGreenDotPDFParser(BaseParser):
             ending_balance=ending_balance,
         )
 
-    def _parse_transactions(self, text: str, warnings: list[str]) -> list[RawTransaction]:
+    def _parse_transactions(
+        self, text: str, warnings: list[str], errors: list[str] | None = None,
+        empty_sections: set[str] | None = None,
+    ) -> list[RawTransaction]:
         lines = text.split("\n")
         transactions: list[RawTransaction] = []
         in_sweep = False
+        in_transactions = False
 
         i = 0
         while i < len(lines):
@@ -170,6 +184,7 @@ class WealthfrontGreenDotPDFParser(BaseParser):
             # Stop at sweep section
             if SWEEP_RE.search(line):
                 in_sweep = True
+                in_transactions = False
                 continue
 
             # Resume only if we hit a plain "TRANSACTIONS" header (multi-page)
@@ -177,9 +192,15 @@ class WealthfrontGreenDotPDFParser(BaseParser):
             # appear inside the sweep section too.
             if line == "TRANSACTIONS":
                 in_sweep = False
+                in_transactions = True
                 continue
 
-            if in_sweep:
+            if in_sweep or not in_transactions:
+                continue
+
+            if re.fullmatch(r"No Transactions\.?", line, re.IGNORECASE):
+                if empty_sections is not None:
+                    empty_sections.add("transactions")
                 continue
 
             # Skip column headers
@@ -217,5 +238,9 @@ class WealthfrontGreenDotPDFParser(BaseParser):
                     amount_str=amount_str,
                     direction=direction,
                 ))
+                continue
+
+            if re.match(r"^\d{1,2}/\d{1,2}/\d{4}\s+.*\d[,.]\d{2}", line) and errors is not None:
+                errors.append(f"Unrecognized transaction row in transactions at source line {i}")
 
         return transactions

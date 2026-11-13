@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -13,7 +14,7 @@ load_dotenv()  # Load .env from project root
 
 from ledgerlift import __version__
 from ledgerlift.config import LOG_DATE_FORMAT, LOG_FORMAT, LOGS_DIR, ensure_dirs
-from ledgerlift.store import get_connection, init_db, reset_derived_state
+from ledgerlift.store import get_connection, init_db
 
 
 def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
@@ -381,6 +382,22 @@ def scan(institution: str | None, account: str | None, year: int | None) -> None
     click.echo(f"  Already known:     {counts['existing']}")
 
 
+
+def _check_parse_results(conn: sqlite3.Connection, counts: dict[str, int]) -> None:
+    """Make incomplete imports visible before dependent stages publish results."""
+    if counts.get("warnings"):
+        click.echo(f"  Advisory warnings: {counts['warnings']} (see validation messages above)")
+    if not counts["failed"]:
+        return
+    from ledgerlift.store import list_source_files
+    for source in list_source_files(conn, parse_status="failed"):
+        click.echo(f"  Failed: {source['relative_path']} — {source['parse_error']}", err=True)
+    raise click.ClickException(
+        f"{counts['failed']} statement(s) failed parsing or validation. "
+        "Previous saved data was retained; exports were not updated."
+    )
+
+
 @cli.command()
 @click.option("--institution", "-i", default=None, help="Filter by institution")
 @click.option("--account", "-a", default=None, help="Filter by account name")
@@ -402,6 +419,7 @@ def parse(
     click.echo(f"  Parsed:       {counts['parsed']}")
     click.echo(f"  Skipped:      {counts['skipped']}")
     click.echo(f"  Failed:       {counts['failed']}")
+    _check_parse_results(conn, counts)
 
 
 @cli.command(name="export")
@@ -849,6 +867,7 @@ def run() -> None:
         f"skipped {parse_counts['skipped']}, "
         f"failed {parse_counts['failed']}"
     )
+    _check_parse_results(conn, parse_counts)
 
     click.echo("Enriching...")
     enrich_counts = enrich_all(conn)
@@ -873,7 +892,7 @@ def run() -> None:
     "--force",
     "-f",
     is_flag=True,
-    help="Force a clean reparse and re-enrichment of every file.",
+    help="Force reparse and re-enrichment of every file.",
 )
 def e2e(force: bool) -> None:
     """Run the full end-to-end pipeline: intake -> scan -> parse -> enrich -> transfers -> export."""
@@ -890,8 +909,7 @@ def e2e(force: bool) -> None:
     conn = get_connection(db_path)
 
     if force:
-        click.echo("Force rebuild: clearing all derived state...")
-        reset_derived_state(conn)
+        click.echo("Force reprocess: validating each replacement before saving...")
 
     click.echo("Intake...")
     if STATEMENTS_DIR.exists():
@@ -917,6 +935,7 @@ def e2e(force: bool) -> None:
         f"skipped {parse_counts['skipped']}, "
         f"failed {parse_counts['failed']}"
     )
+    _check_parse_results(conn, parse_counts)
 
     click.echo("Enriching..." + (" (force)" if force else ""))
     enrich_counts = enrich_all(conn, force=force)
