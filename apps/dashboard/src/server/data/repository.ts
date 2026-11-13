@@ -1,4 +1,6 @@
 import { query } from "./db";
+import { detectCategorizationReview } from "@/lib/categorization-review";
+import { listCategoryOverrides, listMerchantOverrides } from "@/server/rules/repository";
 import { comparisonDayForMonth, currentMonth, monthRange, monthlyCategories, nonDateFilters, parseMonth, shiftMonth } from "@/lib/monthly";
 import {
   overviewMetricsQuery,
@@ -25,6 +27,8 @@ import {
   monthOfYearSeriesQuery,
   monthlyImportedScopeQuery,
   monthlySpendingQuery,
+  categorizationReviewCandidatesQuery,
+  categorizationReviewBaselineQuery,
 } from "./queries";
 import type {
   FilterParams,
@@ -43,7 +47,22 @@ import type {
   MonthOfYearPoint,
   MonthlyOverview,
   MonthlySpendingRow,
+  CategorizationReviewRow,
+  CategorizationBaselineRow,
 } from "./types";
+
+export async function getCategorizationReview(
+  filters: FilterParams, page = 1, pageSize = 50,
+): Promise<PaginatedResult<CategorizationReviewRow>> {
+  const candidates = categorizationReviewCandidatesQuery(filters);
+  const baselines = categorizationReviewBaselineQuery(filters);
+  const [rows, baselineRows, categoryOverrides, merchantOverrides] = await Promise.all([
+    query<Transaction>(candidates.sql, candidates.params),
+    query<CategorizationBaselineRow>(baselines.sql, baselines.params),
+    listCategoryOverrides(), listMerchantOverrides(),
+  ]);
+  return detectCategorizationReview(rows, baselineRows, [...categoryOverrides, ...merchantOverrides], page, pageSize);
+}
 
 export async function getMonthlyOverview(
   requestedMonth: string | null,

@@ -138,6 +138,27 @@ export function buildWhereClause(filters: FilterParams): {
   return { clause, params };
 }
 
+export function categorizationReviewCandidatesQuery(filters: FilterParams): QueryParts {
+  const { clause, params } = buildWhereClause(filters);
+  return {
+    sql: `SELECT * FROM transactions ${clause || "WHERE 1 = 1"}
+      AND category_normalized IS NOT NULL AND category_normalized != 'Uncategorized'
+      AND ${NOT_INTERNAL_FLOW}`,
+    params,
+  };
+}
+
+export function categorizationReviewBaselineQuery(filters: FilterParams): QueryParts {
+  const { clause, params } = buildWhereClause({ institutions: filters.institutions, accounts: filters.accounts });
+  return {
+    sql: `SELECT transaction_id, amount, currency, direction, merchant_normalized, category_normalized
+      FROM transactions ${clause || "WHERE 1 = 1"}
+      AND amount != 0 AND category_normalized IS NOT NULL AND category_normalized != 'Uncategorized'
+      AND ${NOT_INTERNAL_FLOW}`,
+    params,
+  };
+}
+
 export function overviewMetricsQuery(filters: FilterParams): QueryParts {
   const { clause, params } = buildWhereClause(filters);
   const { clause: clause2, params: params2 } = buildWhereClause(filters);

@@ -36,6 +36,7 @@ const mainNav: NavItem[] = [
 ];
 
 const reviewNav: NavItem[] = [
+  { label: "Categorization", href: "/review/categorization", icon: Tags },
   { label: "Unresolved", href: "/review/unresolved", icon: CircleAlert },
   { label: "Transfers", href: "/review/transfers", icon: ArrowRightLeft },
 ];

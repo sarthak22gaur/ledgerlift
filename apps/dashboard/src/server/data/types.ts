@@ -163,6 +163,26 @@ export type PaginatedResult<T> = {
   pageSize: number;
 };
 
+export type CategorizationReviewReason =
+  | { kind: "mixed-retailer" | "weak-mapping"; label: string }
+  | {
+      kind: "unusual-amount";
+      label: string;
+      baseline: "merchant" | "category";
+      ratio: number;
+      median: number;
+      sampleCount: number;
+      currency: string;
+    };
+
+export type CategorizationReviewRow = Transaction & {
+  reviewReasons: CategorizationReviewReason[];
+};
+
+export type CategorizationBaselineRow = Pick<Transaction,
+  "transaction_id" | "amount" | "currency" | "direction" | "merchant_normalized" | "category_normalized"
+>;
+
 export type CalendarYearPoint = { year: string; value: number };
 
 export type CalendarMonthPoint = { month: string; value: number };
