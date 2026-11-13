@@ -1,4 +1,5 @@
 import { query } from "./db";
+import { comparisonDayForMonth, currentMonth, monthRange, monthlyCategories, nonDateFilters, parseMonth, shiftMonth } from "@/lib/monthly";
 import {
   overviewMetricsQuery,
   cashflowSeriesQuery,
@@ -22,6 +23,8 @@ import {
   dayOfWeekSeriesQuery,
   seasonSeriesQuery,
   monthOfYearSeriesQuery,
+  monthlyImportedScopeQuery,
+  monthlySpendingQuery,
 } from "./queries";
 import type {
   FilterParams,
@@ -38,7 +41,48 @@ import type {
   DayOfWeekPoint,
   SeasonPoint,
   MonthOfYearPoint,
+  MonthlyOverview,
+  MonthlySpendingRow,
 } from "./types";
+
+export async function getMonthlyOverview(
+  requestedMonth: string | null,
+  filters: FilterParams,
+  now = new Date()
+): Promise<MonthlyOverview> {
+  const scope = nonDateFilters(filters);
+  const latestQuery = monthlyImportedScopeQuery(scope);
+  const latestRows = await query<{ latestDate: string | null }>(latestQuery.sql, latestQuery.params);
+  const latestImportedDate = latestRows[0]?.latestDate ?? null;
+  const month = parseMonth(requestedMonth) ?? latestImportedDate?.slice(0, 7) ?? currentMonth(now);
+  const range = monthRange(month);
+  const selectedFilters = { ...scope, ...range };
+  const actualQuery = monthlySpendingQuery(selectedFilters);
+  const actual = await query<MonthlySpendingRow>(actualQuery.sql, actualQuery.params);
+  const selectedLatestDate = actual[0]?.latestDate ?? null;
+  const comparisonDay = comparisonDayForMonth(month, latestImportedDate, selectedLatestDate, now);
+  const comparisonRange = monthRange(month, comparisonDay);
+  const fetchWindow = async (windowMonth: string) => {
+    const built = monthlySpendingQuery({ ...scope, ...monthRange(windowMonth, comparisonDay) });
+    return query<MonthlySpendingRow>(built.sql, built.params);
+  };
+  const [comparison, previous, metrics, merchants] = await Promise.all([
+    comparisonRange.endDate === range.endDate ? Promise.resolve(actual) : fetchWindow(month),
+    Promise.all([1, 2, 3].map((offset) => fetchWindow(shiftMonth(month, -offset)))),
+    getOverviewMetrics(selectedFilters),
+    getTopMerchants(selectedFilters),
+  ]);
+  return {
+    month, ...range, filters: selectedFilters, latestImportedDate, selectedLatestDate,
+    transactionCount: actual[0]?.importedCount ?? 0,
+    comparisonDay,
+    comparisonEndDate: comparisonRange.endDate,
+    categorySpending: actual.reduce((sum, row) => sum + row.amount, 0),
+    categories: monthlyCategories(actual, comparison, previous),
+    merchants,
+    metrics,
+  };
+}
 
 export async function getOverviewMetrics(
   filters: FilterParams

@@ -239,6 +239,38 @@ export function categoryBreakdownQuery(filters: FilterParams): QueryParts {
   return { sql, params };
 }
 
+export function monthlyImportedScopeQuery(filters: FilterParams): QueryParts {
+  const { clause, params } = buildWhereClause(filters);
+  return {
+    sql: `SELECT MAX(transaction_date) AS "latestDate", COUNT(*) AS "importedCount" FROM transactions ${clause}`,
+    params,
+  };
+}
+
+/** Keep ledger availability independent of the debit spending exclusions. */
+export function monthlySpendingQuery(filters: FilterParams): QueryParts {
+  const { clause, params } = buildWhereClause(filters);
+  return {
+    sql: `
+      WITH scoped AS (SELECT * FROM transactions ${clause}),
+      coverage AS (
+        SELECT COUNT(*) AS "importedCount", MAX(transaction_date) AS "latestDate" FROM scoped
+      ),
+      spending AS (
+        SELECT COALESCE(category_normalized, 'Uncategorized') AS category,
+          SUM(ABS(amount)) AS amount, COUNT(*) AS count
+        FROM scoped WHERE amount < 0 AND ${NOT_DOUBLE_COUNTED}
+        GROUP BY COALESCE(category_normalized, 'Uncategorized')
+      )
+      SELECT spending.category, COALESCE(spending.amount, 0) AS amount,
+        COALESCE(spending.count, 0) AS count, coverage.*
+      FROM coverage LEFT JOIN spending ON 1 = 1
+      ORDER BY amount DESC
+    `,
+    params,
+  };
+}
+
 export function topMerchantsQuery(
   filters: FilterParams,
   limit: number = 10

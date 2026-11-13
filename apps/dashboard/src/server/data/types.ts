@@ -86,6 +86,39 @@ export type CategoryBreakdown = {
   percentage: number;
 };
 
+export type MonthlySpendingRow = {
+  category: string | null;
+  amount: number;
+  count: number;
+  importedCount: number;
+  latestDate: string | null;
+};
+
+export type MonthlyCategory = CategoryBreakdown & {
+  comparisonAmount: number;
+  previousAmount: number | null;
+  previousDifference: number | null;
+  previousPercent: number | null;
+  threeMonthAverage: number | null;
+  isNew: boolean;
+};
+
+export type MonthlyOverview = {
+  month: string;
+  startDate: string;
+  endDate: string;
+  filters: FilterParams;
+  latestImportedDate: string | null;
+  selectedLatestDate: string | null;
+  transactionCount: number;
+  comparisonDay: number | null;
+  comparisonEndDate: string;
+  categorySpending: number;
+  categories: MonthlyCategory[];
+  merchants: MerchantSummary[];
+  metrics: OverviewMetrics;
+};
+
 export type MerchantSummary = {
   merchant: string;
   amount: number;
